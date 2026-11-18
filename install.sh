@@ -12,7 +12,6 @@
 # Changes nothing else on the Mac: no certificates, no proxy, no /etc/hosts.
 set -euo pipefail
 
-# The GitHub repo does not exist yet: set its SSH URL here once it does.
 REPO="${OWLTWIN_REPO:-git@github.com:samsara-dev/owlauthtwin.git}"
 DEST="${OWLTWIN_HOME:-$HOME/owlauthtwin}"
 BIN="$HOME/.local/bin"

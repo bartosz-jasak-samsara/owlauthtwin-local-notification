@@ -15,8 +15,6 @@ On your Mac, paste this into a terminal. You need git and a GitHub SSH key; `gh`
 git clone git@github.com:samsara-dev/owlauthtwin.git ~/owlauthtwin && ~/owlauthtwin/install.sh
 ```
 
-> The repo URL is a placeholder until the GitHub repo exists. Set it in `install.sh` too.
-
 The script:
 
 - installs uv with Homebrew, if it is missing;
