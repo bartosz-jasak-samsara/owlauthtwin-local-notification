@@ -56,7 +56,8 @@ AGENTS_ENVRC = "$HOME/co/aiml-agents/.envrc.local"
 # AWS SSO sign-in without copying anything: the device flow runs on the devbox and OwlAuth Twin
 # opens its page, code already filled in, in your browser on this Mac. The devbox profiles share
 # one sso-session, so one sign-in renews them all: that of OWLTWIN_AWS_PROFILE (or of its
-# sso-<profile> entry) when it is set, else the first sso-session in the devbox's ~/.aws/config.
+# sso-<profile> entry) when it is set, else the one most profiles in the devbox's ~/.aws/config
+# use, else its first.
 SSO_LOGIN = r"""
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE
 s=""
@@ -64,6 +65,9 @@ if [ -n "$P" ]; then
   s=$(aws configure get sso_session --profile "$P" 2>/dev/null ||
       aws configure get sso_session --profile "sso-$P" 2>/dev/null)
 fi
+# The sso-session most profiles use: a config can keep an old one (samsara-legacy, say) first.
+[ -n "$s" ] || s=$(awk '$1 == "sso_session" {print $3}' ~/.aws/config 2>/dev/null |
+  sort | uniq -c | sort -rn | awk 'NR == 1 {print $2}')
 [ -n "$s" ] || s=$(sed -n 's/^\[sso-session \(.*\)\]$/\1/p' ~/.aws/config 2>/dev/null | head -n 1)
 [ -n "$s" ] || { echo "no sso-session in the devbox's ~/.aws/config"; exit 1; }
 exec timeout 600 aws sso login --sso-session "$s" --use-device-code --no-browser

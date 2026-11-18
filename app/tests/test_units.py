@@ -318,6 +318,26 @@ class SessionLogicTest(unittest.TestCase):
         self.assertEqual(parse_flags(False, "", []).org, 205)
 
 
+class SsoLoginScriptTest(unittest.TestCase):
+    def test_picks_the_session_most_profiles_use(self):
+        import subprocess
+
+        from owltwin_app import devbox_link
+
+        home = Path(tempfile.mkdtemp())
+        (home / ".aws").mkdir()
+        (home / ".aws/config").write_text(
+            "[sso-session old]\nsso_region = r\n[sso-session new]\nsso_region = r\n"
+            "[profile a]\nsso_session = new\n[profile b]\nsso_session = new\n"
+        )
+        script = "P=\n" + devbox_link.SSO_LOGIN.replace(
+            "exec timeout 600 aws sso login", "echo picked")
+        env = {"HOME": str(home), "PATH": "/usr/bin:/bin"}
+        out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True,
+                             timeout=10).stdout
+        self.assertIn("picked --sso-session new ", out)
+
+
 class OverridesScriptTest(unittest.TestCase):
     def run_script(self, fn, *args):
         from owltwin_app import devbox_link
