@@ -406,3 +406,15 @@ h2 .num{display:inline-flex;align-items:center;justify-content:center;width:20px
 .hmore .pi .pd{grid-column:2/-1;color:var(--muted);font-size:12px;line-height:16px}
 .progw{display:flex;flex-direction:column;gap:6px}
 .progw>.muted{align-self:flex-end;font-size:13px;line-height:18px;font-variant-numeric:tabular-nums}
+
+/* Session popover under the top bar's status: devbox, mode and how to attach to tmux. */
+.smore>summary.status{margin:0;padding:4px 8px;gap:8px}
+.smore>summary .dn{width:14px;height:14px;color:var(--muted);transition:transform .12s}
+.smore[open]>summary .dn{transform:rotate(180deg)}
+.top{position:relative}
+.smore{position:static}
+.smore .pop{left:auto;right:16px;top:calc(100% - 6px);width:460px;max-width:calc(100vw - 32px);padding:14px;display:flex;flex-direction:column;gap:10px}
+.smore .pop .overline{margin-top:4px}
+.smore .pop .code{margin:0}
+.smore .pop .wins{font-size:12px;line-height:16px;row-gap:4px}
+.smore .pop .wins .k{font-family:var(--font-mono)}

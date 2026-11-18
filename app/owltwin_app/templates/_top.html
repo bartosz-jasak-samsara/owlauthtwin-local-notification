@@ -1,6 +1,30 @@
-{# top: None, or {"state": "setup" | "stopping" | "down" | "ok", "where", "down", "ago", "settings"} #}
+{# top: None, or {"state": "setup" | "stopping" | "down" | "ok", "where", "down", "ago", "settings",
+   "info"}. info (every state but stopping) feeds the Session popover: devbox, mode, tmux. #}
 {% from "_icons.html" import spin %}
-{% from "_ui.html" import post_btn %}
+{% from "_ui.html" import post_btn, code %}
+{% macro session_pop(info) -%}
+  <div class="pop" role="dialog" aria-label="Session">
+    <div class="kv2">
+      <span class="k">Devbox</span><span>{{ info.devbox }}</span>
+      <span class="k">Mode</span><span>{{ info.mode }}</span>
+    </div>
+    {% if info.attach %}
+      <div class="overline">Projects run in tmux on the devbox</div>
+      {{ code(info.attach) }}
+      <div class="kv2 wins">
+        {% for w in info.windows %}
+          <span class="k">{{ w.name }}</span>
+          <span{% if not w.ours %} class="muted"{% endif %}>{{ w.note }}</span>
+        {% endfor %}
+      </div>
+      <div class="hint">In tmux, <code class="ic">Ctrl-b w</code> picks a window and
+        <code class="ic">Ctrl-b d</code> leaves. Everything keeps running.</div>
+    {% else %}
+      <div class="hint">Twin only: OwlAuth Twin starts no projects, so nothing of it runs
+        in tmux.</div>
+    {% endif %}
+  </div>
+{%- endmacro %}
 <header class="top">
   <a class="brand" href="/">
     <img src="/static/samsara-lockup.png" alt="Samsara"
@@ -10,30 +34,35 @@
   </a>
   <span class="spacer"></span>
   {% if top %}
-    {% if top.state == "setup" %}
-      <span class="status">
-        {{ spin() }}
-        <b>Setting up</b>
-        <span class="where"> · {{ top.where }}</span>
-      </span>
-    {% elif top.state == "stopping" %}
+    {% if top.state == "stopping" %}
       <span class="status">
         {{ spin() }}
         <b>Stopping</b>
         <span class="where"> · {{ top.where }}</span>
       </span>
-    {% elif top.state == "down" %}
-      <span class="status">
-        <span class="live down"></span>
-        <b>Running, {{ top.down }}</b>
-        <span class="where"> · {{ top.where }}</span>
-      </span>
     {% else %}
-      <span class="status">
-        <span class="live"></span>
-        <b>Running</b>
-        <span class="where"> · {{ top.where }} · {{ top.ago }}</span>
-      </span>
+      <details class="hmore smore">
+        <summary class="status" title="Session details">
+          {% if top.state == "setup" %}
+            {{ spin() }}
+            <b>Setting up</b>
+            <span class="where"> · {{ top.where }}</span>
+          {% elif top.state == "down" %}
+            <span class="live down"></span>
+            <b>Running, {{ top.down }}</b>
+            <span class="where"> · {{ top.where }}</span>
+          {% else %}
+            <span class="live"></span>
+            <b>Running</b>
+            <span class="where"> · {{ top.where }} · {{ top.ago }}</span>
+          {% endif %}
+          <svg class="dn" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </summary>
+        {{ session_pop(top.info) }}
+      </details>
     {% endif %}
     {% if top.settings %}
       <a class="btn btn-quiet" href="{{ top.settings }}">Session settings</a>

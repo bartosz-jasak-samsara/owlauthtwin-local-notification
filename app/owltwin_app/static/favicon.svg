@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2400 2400">
+  <!-- OwlAuth Twin: the Samsara owl in front, its yellow twin one step behind. -->
+  <defs>
+    <path id="owl" d="M155 0L960 392L1765 0L1613 392H1852L960 1290L68 392H307Z M198 676L276 754A395 395 0 0 0 812 1294L960 1442L1108 1294A395 395 0 0 0 1644 754L1722 676L1876 1055L1760 1172L1918 1333L1247 1830H674L2 1333L160 1172L44 1055Z M428 907L660 1140A165 165 0 0 1 428 907Z M1492 907L1260 1140A165 165 0 0 0 1492 907Z"/>
+  </defs>
+  <rect width="2400" height="2400" rx="480" fill="#1c1917"/>
+  <use href="#owl" xlink:href="#owl" transform="translate(690 250) scale(0.78)" fill="#feae0f"/>
+  <!-- The front owl's outline: a solid silhouette with a sharp-cornered stroke, so the gap
+       between the owls matches the gap in the logo and the twin never shows through. -->
+  <path d="M155 0L960 392L1765 0L1613 392H1852L1722 676L1876 1055L1760 1172L1918 1333L1247 1830H674L2 1333L160 1172L44 1055L198 676L68 392H307Z"
+        transform="translate(210 720) scale(0.78)" fill="#1c1917" stroke="#1c1917"
+        stroke-width="220" stroke-linejoin="miter" stroke-miterlimit="20"/>
+  <use href="#owl" xlink:href="#owl" transform="translate(210 720) scale(0.78)" fill="#f5f4f1"/>
+</svg>

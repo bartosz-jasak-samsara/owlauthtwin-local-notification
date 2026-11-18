@@ -520,6 +520,23 @@ class PanelRoutesTest(unittest.TestCase):
         ]
         self.assertEqual(app.calls, expected)
 
+    def test_session_popover_says_how_to_attach_to_tmux(self):
+        t, body, _ = running("workday.yaml")
+        self.assertIn("ssh devbox-1 -t tmux attach -t owltwin-run", body)
+        pop = body.split('aria-label="Session"')[1].split("</details>")[0]
+        for window in ("setup", "backend", "agents"):
+            self.assertIn(f'<span class="k">{window}</span>', pop)
+
+    def test_actions_use_the_connector_of_their_page(self):
+        # Another tab showing Gmail made it active; the button was clicked on Microsoft 365.
+        s = session("gmail.yaml", others=("microsoft-365.yaml",))
+        app = FakeApp(session=s)
+        seen = []
+        app.set_idp = lambda on: seen.append(s.active)
+        ref = {**LOCAL, "Referer": "http://127.0.0.1:18200/?c=microsoft-365"}
+        self.client(app).post("/idp/on", headers=ref)
+        self.assertEqual(seen, ["microsoft-365"])
+
     def test_actions_reject_unknown_and_foreign_referer(self):
         app = FakeApp(session=session("workday.yaml"))
         c = self.client(app)
@@ -550,12 +567,12 @@ class AllConnectorsTest(unittest.TestCase):
                          req_body="token=x", ok=False, status=400, reason="unknown " + EVIL)
             amb.candidates = ["gmail", "google-calendar"]
 
-        t, body, _ = running("monday.yaml", prep, others=self.OTHERS)
+        t, body, _ = running("monday.yaml", prep, {"scope": "all"}, others=self.OTHERS)
         assert_escaped(self, body)
         rail = [a["href"] for a in t.find("a") if "pi" in (a.get("class") or "").split()]
         # one row per connector in the rail and again in the compact menu
         self.assertEqual(len(rail), 2 * 4)
-        self.assertIn("/?c=gmail", rail)
+        self.assertIn("/?scope=all&c=gmail", rail)
         self.assertTrue(t.has_class("pvb"))
         self.assertTrue(t.has_class("amb"))
         rows = {a["data-ex"]: a.get("href") for a in t.with_attr("data-ex")}
@@ -566,7 +583,7 @@ class AllConnectorsTest(unittest.TestCase):
         problems = next(a for a in t.find("a") if "f=problems" in (a.get("href") or ""))
         self.assertIsNotNone(problems)
 
-        t, _, _ = running("monday.yaml", prep, {"scope": "this"}, others=self.OTHERS)
+        t, _, _ = running("monday.yaml", prep, others=self.OTHERS)   # default: this connector
         self.assertEqual(len(t.with_attr("data-ex")), 1)
 
     def test_ambiguous_drawer(self):
@@ -607,6 +624,12 @@ class AllConnectorsTest(unittest.TestCase):
         self.assertTrue(web.side_vm(s)["idp"]["on"])
         s.active = "monday"
         self.assertIsNone(web.side_vm(s)["idp"])
+
+    def test_selected_scope_and_connector_are_marked(self):
+        _, body, _ = running("monday.yaml", others=self.OTHERS, q={"scope": "this"})
+        self.assertIn('role="tab" class="on" aria-selected="true">Current connector', body)
+        self.assertIn('aria-current="true"', body)
+        self.assertNotIn("&#34;", body)
 
     def test_settings_sheet(self):
         t, body, _ = running("monday.yaml", q={"settings": "1"})

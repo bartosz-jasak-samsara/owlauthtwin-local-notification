@@ -96,12 +96,40 @@ def top_vm(s: Session | None, stopping: dict[str, Any] | None = None) -> dict[st
             return {"state": "stopping", "where": where, "settings": ""}
         return None
     where = f"{s.devbox.alias} · {MODE_LABEL[s.mode]}"
+    info = session_info(s)
     if s.phase == "setup":
-        return {"state": "setup", "where": where, "settings": ""}
+        return {"state": "setup", "where": where, "settings": "", "info": info}
     if s.problems:
         p = s.problems[0]
-        return {"state": "down", "where": where, "down": DOWN.get(p.key, p.title), "settings": ""}
-    return {"state": "ok", "where": where, "ago": ago(s.running_since), "settings": ""}
+        down = DOWN.get(p.key, p.title)
+        return {"state": "down", "where": where, "down": down, "settings": "", "info": info}
+    ago_ = ago(s.running_since)
+    return {"state": "ok", "where": where, "ago": ago_, "settings": "", "info": info}
+
+
+def session_info(s: Session) -> dict[str, Any]:
+    """The top bar's Session popover: where things run and how to look at them."""
+    d = s.devbox
+    info: dict[str, Any] = {
+        "devbox": f"{d.alias} · {d.name} · {d.region}",
+        "mode": MODE_LABEL[s.mode],
+        "attach": "",
+        "windows": [],
+    }
+    if s.mode == "twin_only":
+        return info
+    info["attach"] = f"ssh {d.alias} -t tmux attach -t {devbox_link.RUN_SESSION}"
+    link = s.link
+    for key, what, ours, ok in (
+        ("setup", "repos, sandbox image, sign-ins", True, True),
+        ("backend", "taskrunner", link.backend_ours if link else True,
+         bool(link.backend) if link else False),
+        ("agents", "aiml-agents :8000", link.agents_ours if link else True,
+         link.agents_ok if link else False),
+    ):
+        note = what if ours or not ok else f"{what}, yours: runs outside owltwin-run"
+        info["windows"].append({"name": key, "note": note, "ours": ours or not ok})
+    return info
 
 
 def page(title: str, template: str, ctx: dict[str, Any]) -> str:
@@ -586,7 +614,7 @@ def matches(e: Exchange, f: str) -> bool:
 
 
 SCOPES = ("all", "this")
-DEFAULTS = {"f": "all", "scope": "all"}
+DEFAULTS = {"f": "all", "scope": "this"}
 
 
 def qs(q: dict[str, str], **changes: Any) -> str:
@@ -859,7 +887,7 @@ def settings_vm(s: Session) -> dict[str, Any]:
 
 def running_vm(s: Session, q: dict[str, str]) -> dict[str, Any]:
     f = q.get("f", "all") if q.get("f") in dict(FILTERS) else "all"
-    scope = q.get("scope") if q.get("scope") in SCOPES else "all"
+    scope = q.get("scope") if q.get("scope") in SCOPES else "this"
     ex_id = int(q["ex"]) if q.get("ex", "").isdigit() else None
     exs = s.twins.log.all() if scope == "all" else s.twin.exchanges
     counts = {k: sum(1 for e in exs if matches(e, k)) for k, _ in FILTERS}
@@ -875,7 +903,7 @@ def running_vm(s: Session, q: dict[str, str]) -> dict[str, Any]:
     ]
     scopes = [
         {"label": "All connectors", "on": scope == "all", "href": qs(q, scope="all", ex=None)},
-        {"label": "This connector", "on": scope == "this", "href": qs(q, scope="this", ex=None)},
+        {"label": "Current connector", "on": scope == "this", "href": qs(q, scope="this", ex=None)},
     ]
     names = {pid: short_name(st.provider.name) for pid, st in s.twins.states.items()}
     shown = [e for e in reversed(exs) if matches(e, f)][:MAX_ACTIVITY]
@@ -968,6 +996,12 @@ def create_app(app: App) -> Flask:
     def with_session(action: Callable[[], object]) -> Response:
         if not app.session:
             return see_other("/")
+        # Act on the connector of the page the button was on. Another panel tab that shows a
+        # different connector switches the active one each time it refreshes.
+        page = urllib.parse.urlsplit(back()).query
+        c = urllib.parse.parse_qs(page).get("c", [""])[0]
+        if c:
+            app.set_active(c)
         action()
         return see_other(back())
 

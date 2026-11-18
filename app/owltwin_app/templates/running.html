@@ -17,7 +17,7 @@
         <h2>Activity</h2>
         <div class="seg" role="tablist" aria-label="Connectors">
           {% for sc in scopes %}
-            <a href="{{ sc.href }}" role="tab" {{- ' class="on" aria-selected="true"' if sc.on }}>
+            <a href="{{ sc.href }}" role="tab" {%- if sc.on %} class="on" aria-selected="true"{% endif %}>
               {{- sc.label }}</a>
           {% endfor %}
         </div>
