@@ -1,0 +1,26 @@
+{# Small building blocks shared by every page. #}
+{% from "_icons.html" import icon %}
+
+{% macro copy_btn(value, label) -%}
+  <button class="icon-btn" type="button" data-copy="{{ value }}"
+          aria-label="Copy {{ label }}">{{ icon("copy") }}</button>
+{%- endmacro %}
+
+{# A POST form with one button. Buttons from view-models are {"action", "label", "cls"}. #}
+{% macro post_btn(action, label, cls="btn") -%}
+  <form method="post" action="{{ action }}">
+    <button class="{{ cls }}" type="submit">{{ label }}</button>
+  </form>
+{%- endmacro %}
+
+{% macro button(b) -%}
+  {{ post_btn(b.action, b.label, b.cls) }}
+{%- endmacro %}
+
+{# A command to copy, as in the needs-you card, the checklist and the banner. #}
+{% macro code(command, style="") -%}
+  <div class="code{{ ' multi' if '\n' in command }}"{% if style %} style="{{ style }}"{% endif %}>
+    <span>{{ command }}</span>
+    {{ copy_btn(command, "command") }}
+  </div>
+{%- endmacro %}

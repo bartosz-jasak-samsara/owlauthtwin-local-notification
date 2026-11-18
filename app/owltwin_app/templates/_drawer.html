@@ -1,0 +1,51 @@
+{# drawer: one request in full. #}
+{% from "_icons.html" import icon %}
+<aside class="drawer" aria-label="Request detail">
+  <div class="dh">
+    <span class="mono">{{ drawer.method }} {{ drawer.path }}</span>
+    <span class="tag">{{ drawer.who }}</span>
+    <a class="icon-btn" href="{{ drawer.close }}" aria-label="Close detail">{{ icon("close") }}</a>
+  </div>
+  {% if drawer.reason %}
+    <div class="dsec">
+      <div class="overline">Why</div>
+      <div class="whyd">{{ drawer.reason }}</div>
+    </div>
+  {% endif %}
+  {% if drawer.amb %}
+    <div class="dsec">
+      <div class="overline">Connector · ambiguous</div>
+      <div class="kv2">
+        {% for r in drawer.amb %}
+          <span class="k">{{ r.k }}</span>
+          <span>{{ r.v }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  {% if drawer.fix %}
+    <div class="dsec">
+      <div class="overline">Callback port fixed by the Twin</div>
+      <div class="fixd">{{ drawer.fix }}</div>
+      <pre>{{ drawer.sent_to }}</pre>
+    </div>
+  {% endif %}
+  <div class="dsec">
+    <div class="overline">Request · {{ drawer.host }}</div>
+    {% if drawer.headers %}
+      <pre>{{ drawer.headers }}</pre>
+    {% endif %}
+    <pre>{{ drawer.request or "(empty)" }}</pre>
+  </div>
+  <div class="dsec">
+    <div class="overline">Response · {{ drawer.status }} · {{ drawer.duration_ms }} ms</div>
+    <pre>{{ drawer.response or "(empty)" }}</pre>
+  </div>
+  <div class="dsec" style="border-bottom:none">
+    <div class="row">
+      <button class="btn" type="button" data-copy="{{ drawer.curl }}">Copy as curl</button>
+      <button class="btn btn-quiet" type="button" data-copy="{{ drawer.resp_body }}">
+        {{- "Copy response" }}</button>
+    </div>
+  </div>
+</aside>

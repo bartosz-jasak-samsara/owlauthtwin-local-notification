@@ -1,0 +1,196 @@
+{# Setup, no session yet: the connector to show first, the devbox, the mode and the flags. #}
+{% from "_icons.html" import icon, spin %}
+<div class="app">
+  {% include "_top.html" %}
+  <form method="post" action="/session" class="center" id="setup">
+    <div class="col wide">
+      <div>
+        <h1>Start a Twin session</h1>
+        <p class="lead">
+          Pick a running devbox and how much to set up. With Twin only, your own env keeps running
+          as it is; {{ app_name }} only points it at the Twin.
+        </p>
+      </div>
+      {% if stopping %}
+        <div class="card notice" role="status">
+          {{ spin() }}
+          <span>{{ stopping }}</span>
+        </div>
+      {% endif %}
+      {% for msg in [error, stop_error] if msg %}
+        <div class="card alert" role="alert">
+          {{ icon("fail") }}
+          <span>{{ msg }}</span>
+        </div>
+      {% endfor %}
+
+      {% if first_load %}
+        <div class="first-load" role="status">
+          {{ spin() }}
+          <span class="t">Looking for running devboxes…</span>
+          <span class="d">devbox list checks each box, up to 20 s. Setup shows once it knows what
+            you can set up.</span>
+        </div>
+      {% else %}
+      <div class="setup2">
+        <section class="grp" aria-label="Connector">
+          <div class="row">
+            <h2>Connector to start with</h2>
+            <span class="spacer"></span>
+            <span class="muted mono" style="font-size:12px">{{ providers_dir }}</span>
+          </div>
+          <div class="card">
+            {% if valid_count %}
+              <div class="mocked">
+                <span>The Twin stands in for all {{ valid_count }} at once. Your pick is the one
+                  Running shows first.</span>
+              </div>
+            {% endif %}
+            <div role="radiogroup">
+              {% for p in providers %}
+                {% if p.ok %}
+                  <label class="opt">
+                    <input type="radio" name="provider" value="{{ p.file }}"
+                           data-name="{{ p.name }}" {{- ' checked' if p.checked }}>
+                    <span class="r"></span>
+                    <span>
+                      <span class="t" style="display:block">{{ p.name }}</span>
+                      <span class="d" style="display:block">{{ p.sub }}</span>
+                    </span>
+                    <span class="x"></span>
+                  </label>
+                {% else %}
+                  <div class="opt dis">
+                    <span class="r"></span>
+                    <span>
+                      <span class="t" style="display:block">{{ p.stem }}</span>
+                      <span class="d" style="display:block">{{ p.file }} has {{ p.problems }}
+                        error(s), so the Twin leaves it out: {{ p.first_problem }}</span>
+                    </span>
+                    <span class="x"></span>
+                  </div>
+                {% endif %}
+              {% else %}
+                <div class="opt">
+                  <span></span>
+                  <span class="d">No provider YAML files</span>
+                  <span></span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <div class="cfg">
+          <section class="grp" aria-label="Devbox">
+            <div class="row">
+              <h2><span class="num">1</span>Devbox</h2>
+              <span class="spacer"></span>
+              <span class="muted" style="font-size:13px">Running devboxes only</span>
+              {% if loading %}
+                <span class="btn btn-quiet" aria-disabled="true">{{ spin() }}Refreshing…</span>
+              {% else %}
+                <a class="btn btn-quiet" href="/?refresh=1">Refresh</a>
+              {% endif %}
+            </div>
+            <div class="card" role="radiogroup">
+              {% for d in devboxes %}
+                <label class="opt{{ '' if d.ok else ' dis' }}">
+                  <input type="radio" name="devbox" value="{{ d.alias }}"
+                         {{- ' checked' if d.checked }}{{ ' disabled' if not d.ok }}>
+                  <span class="r"></span>
+                  <span>
+                    <span class="t" style="display:block">{{ d.label }}</span>
+                    <span class="d" style="display:block">{{ d.sub }}</span>
+                  </span>
+                  <span class="x"></span>
+                </label>
+              {% endfor %}
+              {% if not devboxes and loading %}
+                <div class="opt loading" role="status">
+                  {{ spin() }}
+                  <span class="d">Looking for running devboxes… <span class="muted">devbox list
+                    checks each box, up to 20 s</span></span>
+                  <span></span>
+                </div>
+              {% elif not devboxes %}
+                <div class="opt">
+                  <span></span>
+                  <span class="d">{{ list_msg }}</span>
+                  <span></span>
+                </div>
+              {% endif %}
+            </div>
+          </section>
+
+          <section class="grp" aria-label="Mode">
+            <h2><span class="num">2</span>What to set up</h2>
+            <div class="card" role="radiogroup">
+              <label class="opt">
+                <input type="radio" name="mode" value="full" {{- ' checked' if mode == 'full' }}>
+                <span class="r"></span>
+                <span>
+                  <span class="t" style="display:block">Full stack</span>
+                  <span class="d" style="display:block">Starts the backend, aiml-agents, the code
+                    sandbox and devbox connect, plus everything Twin only does.</span>
+                </span>
+                <span class="x"></span>
+              </label>
+              <label class="opt">
+                <input type="radio" name="mode" value="twin_only"
+                       {{- ' checked' if mode == 'twin_only' }}>
+                <span class="r"></span>
+                <span>
+                  <span class="t" style="display:block">Twin only</span>
+                  <span class="d" style="display:block">You run your own env. Only the route to the
+                    Twin is set up.</span>
+                </span>
+                <span class="x"></span>
+                <span class="optsub" data-show="twin_only"
+                      {{- '' if mode == 'twin_only' else ' hidden' }}>
+                  <span class="k">Mac</span>
+                  <span>Twin certificates, Mac proxy for Twin hosts only</span>
+                  <span class="k">Devbox</span>
+                  <span>ssh -R tunnel, <span class="m">/etc/hosts</span> + socat :443 to the
+                    Twin</span>
+                  <span class="k">CA bundle</span>
+                  <span class="m">~/.owltwin/combined-ca.pem</span>
+                  <span class="k">Not touched</span>
+                  <span>repos, sandbox, aiml-agents, backend, devbox connect</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <section class="grp" aria-label="Feature flags">
+            <h2><span class="num">3</span>Feature flags</h2>
+            {% with f = flags, titled = false %}{% include "_flags.html" %}{% endwith %}
+          </section>
+
+          <div class="go">
+            <div class="row" style="gap:12px">
+              {% if cont %}
+                <button class="btn btn-primary btn-lg" type="submit" formaction="/resume"
+                        {{- '' if cont.up and not stopping else ' disabled' }}>
+                  Continue last session
+                </button>
+              {% endif %}
+              <button class="{{ 'btn btn-lg' if cont else 'btn btn-primary btn-lg' }}"
+                      type="submit" {{- '' if can_start else ' disabled' }}>Start session</button>
+            </div>
+            {% if cont and cont.up %}
+              <span class="muted" style="font-size:13px">Continue: {{ cont.summary }} · closed at
+                {{ cont.saved }}. Keeps the Twin's secrets and tokens.</span>
+            {% elif cont %}
+              <span class="muted" style="font-size:13px">{{ cont.alias }} is not running right
+                now. Start it, then Refresh.</span>
+            {% endif %}
+            <span class="muted" style="font-size:13px" data-summary>Start: {{ start_summary }}.
+              Stop undoes all of it.</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </form>
+</div>

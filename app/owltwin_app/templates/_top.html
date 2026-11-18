@@ -1,0 +1,47 @@
+{# top: None, or {"state": "setup" | "stopping" | "down" | "ok", "where", "down", "ago", "settings"} #}
+{% from "_icons.html" import spin %}
+{% from "_ui.html" import post_btn %}
+<header class="top">
+  <a class="brand" href="/">
+    <img src="/static/samsara-lockup.png" alt="Samsara"
+         style="display:block;height:16px;width:auto">
+    <span class="sep" aria-hidden="true"></span>
+    <span class="name">{{ app_name }}</span>
+  </a>
+  <span class="spacer"></span>
+  {% if top %}
+    {% if top.state == "setup" %}
+      <span class="status">
+        {{ spin() }}
+        <b>Setting up</b>
+        <span class="where"> · {{ top.where }}</span>
+      </span>
+    {% elif top.state == "stopping" %}
+      <span class="status">
+        {{ spin() }}
+        <b>Stopping</b>
+        <span class="where"> · {{ top.where }}</span>
+      </span>
+    {% elif top.state == "down" %}
+      <span class="status">
+        <span class="live down"></span>
+        <b>Running, {{ top.down }}</b>
+        <span class="where"> · {{ top.where }}</span>
+      </span>
+    {% else %}
+      <span class="status">
+        <span class="live"></span>
+        <b>Running</b>
+        <span class="where"> · {{ top.where }} · {{ top.ago }}</span>
+      </span>
+    {% endif %}
+    {% if top.settings %}
+      <a class="btn btn-quiet" href="{{ top.settings }}">Session settings</a>
+    {% endif %}
+    {% if top.state == "stopping" %}
+      <button class="btn" type="button" disabled>{{ spin() }}Stopping…</button>
+    {% else %}
+      {{ post_btn("/stop", "Stop") }}
+    {% endif %}
+  {% endif %}
+</header>

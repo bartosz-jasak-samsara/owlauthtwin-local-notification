@@ -1,0 +1,36 @@
+# Tests, ruff, provider lint and shellcheck on every push and pull request. No devbox needed:
+# the tests fake the Mac proxy and run every provider's flow against a local Twin.
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: macos-latest   # the app is Mac only (networksetup, the Mac proxy restore)
+    timeout-minutes: 10
+    env:
+      OWLTWIN_NO_SYSTEM_PROXY: "1"
+      OWLTWIN_NO_DEVBOX: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Packages
+        working-directory: app
+        run: uv sync --frozen
+      - name: Tests
+        working-directory: app
+        run: uv run python -m unittest discover -s tests
+      - name: Ruff
+        working-directory: app
+        run: uv run ruff check .
+      - name: Provider lint
+        run: ./owltwin lint
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck owltwin install.sh

@@ -1,0 +1,44 @@
+{# Session settings: a sheet over Running. settings: settings_vm. #}
+{% from "_icons.html" import icon %}
+<a class="scrim" href="{{ settings.close }}" aria-label="Close session settings"></a>
+<aside class="sheet" role="dialog" aria-label="Session settings">
+  <div class="shh">
+    <h2 style="flex:1">Session settings</h2>
+    <a class="icon-btn" href="{{ settings.close }}" aria-label="Close">{{ icon("close") }}</a>
+  </div>
+  <div class="shb">
+    <div class="ssec">
+      <div class="overline">Session</div>
+      <div class="kv2">
+        <span class="k">Devbox</span>
+        <span>{{ settings.devbox }}</span>
+        <span class="k">Mode</span>
+        <span><b>{{ settings.mode }}</b></span>
+      </div>
+      <div class="hint">
+        Set when the session started. To change them, Stop and start a new session.
+      </div>
+    </div>
+    <form class="ssec" method="post" action="/settings/flags">
+      {% with f = settings.flags, flags_off = settings.flags_off %}
+        {% include "_flags.html" %}
+      {% endwith %}
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Apply</button>
+        <span class="hint" style="flex:1" data-changes>Runs in the background; you can close
+          this. The health bar shows when it is done.</span>
+      </div>
+      {% if settings.applied %}
+        <div class="hint">{{ settings.applied }}</div>
+      {% endif %}
+    </form>
+    <form class="ssec" method="post" action="/settings/flags/remove">
+      <input type="hidden" name="org" value="{{ settings.org }}">
+      <div class="row">
+        <button class="btn" type="submit">Remove overrides for org {{ settings.org }}</button>
+        <span class="hint" style="flex:1">Deletes the overrides {{ app_name }} set. Flags go back
+          to what the backend says.</span>
+      </div>
+    </form>
+  </div>
+</aside>

@@ -1,0 +1,8 @@
+{# One connector in the switcher (rail and compact menu). r: rail_vm row. #}
+<a class="pi{{ ' on' if r.on }}" href="{{ r.href }}" {{- ' aria-current="true"' if r.on }}>
+  <span class="sdot{{ ' ' + r.dot if r.dot }}"></span>
+  <span style="min-width:0">
+    <span class="n">{{ r.name }}</span>
+    <span class="s{{ ' bad' if r.bad }}">{{ r.line }}</span>
+  </span>
+</a>

@@ -1,0 +1,52 @@
+{# The feature flag card (Setup and Session settings).
+   f: {"enabled", "org", "sheet", "flags": [{"name", "on", "state", "chg"}]}. Names are form
+   fields: flags (switch), org, flag (one per kept flag), flag_add. titled=false: the page's own
+   heading names the card (Setup), so the card head is just the switch and what it does. #}
+<div class="card" data-flags
+     {%- if f.sheet %} data-enabled-was="{{ 'true' if f.enabled else 'false' }}"
+     data-org-was="{{ f.org }}"{% endif %}>
+  <div class="srow head">
+    {% if titled is defined and not titled %}
+      <span class="t">Org overrides on the devbox backend</span>
+    {% else %}
+      <span>
+        <span class="t">Feature flags</span>
+        <span class="d">Org overrides on the devbox backend.</span>
+      </span>
+    {% endif %}
+    <label class="sw">
+      <input type="checkbox" name="flags" value="1" aria-label="Feature flags"
+             {{- ' checked' if f.enabled }}><i></i>
+    </label>
+  </div>
+  <div class="srow{{ '' if f.enabled else ' dim' }}" style="align-items:center">
+    <label class="field">Org ID
+      <input class="in" name="org" value="{{ f.org }}" inputmode="numeric"
+             {{- '' if f.enabled else ' disabled' }}>
+    </label>
+    <span></span>
+  </div>
+  <div class="flags{{ '' if f.enabled else ' off' }}">
+    {% for fl in f.flags %}
+      <div class="flag">
+        <label class="sw">
+          <input type="checkbox" name="flag" value="{{ fl.name }}" aria-label="{{ fl.name }}"
+                 {%- if f.sheet %} data-was="{{ '1' if fl.on and f.enabled else '0' }}"{% endif %}
+                 {{- ' checked' if fl.on }}{{ '' if f.enabled else ' disabled' }}><i></i>
+        </label>
+        <span class="n">{{ fl.name }}</span>
+        <span class="s{{ ' chg' if fl.chg }}">{{ fl.state }}</span>
+      </div>
+    {% endfor %}
+    <div class="flag addf">
+      <span></span>
+      <input class="in" name="flag_add" placeholder="Add flag" aria-label="Add flag"
+             autocomplete="off" {{- '' if f.enabled else ' disabled' }}>
+      <span></span>
+    </div>
+  </div>
+  <div class="srow" data-off-hint {{- '' if not f.enabled else ' hidden' }}>
+    <span class="d" style="margin:0">{{ flags_off }}</span>
+    <span></span>
+  </div>
+</div>

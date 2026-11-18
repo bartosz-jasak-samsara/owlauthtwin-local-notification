@@ -1,0 +1,118 @@
+{# Running: health, what to paste, Activity and one request in detail. #}
+{% from "_icons.html" import icon, spin %}
+{% from "_ui.html" import button, code %}
+<div class="app app-run keep">
+  {% include "_top.html" %}
+  {% include "_health.html" %}
+
+  <div class="run rail{{ ' detail' if drawer }}">
+    <nav class="prail only-wide" aria-label="Connectors">
+      <div class="rh"><span class="overline">Connectors</span></div>
+      {% for r in rail %}{% include "_pi.html" %}{% endfor %}
+    </nav>
+    {% include "_side.html" %}
+
+    <section class="feed" aria-label="Activity" aria-live="polite">
+      <div class="feedh">
+        <h2>Activity</h2>
+        <div class="seg" role="tablist" aria-label="Connectors">
+          {% for sc in scopes %}
+            <a href="{{ sc.href }}" role="tab" {{- ' class="on" aria-selected="true"' if sc.on }}>
+              {{- sc.label }}</a>
+          {% endfor %}
+        </div>
+        <div class="chips">
+          {% for ch in chips %}
+            <a class="chip{{ ' on' if ch.on }}" href="{{ ch.href }}">
+              {{- ch.label }} <span class="c{{ ' err' if ch.err }}">{{ ch.count }}</span></a>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if banner %}
+        <div class="banner" role="alert">
+          {{ icon("fail") }}
+          <span style="flex:1;min-width:0">
+            <span class="t" style="display:block">{{ banner.title }}</span>
+            <span class="d" style="display:block">{{ banner.detail }}</span>
+            {% if banner.command %}
+              {{ code(banner.command, "margin-top:8px") }}
+            {% endif %}
+          </span>
+          {% for b in banner.buttons %}
+            {{ button(b) }}
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="acts">
+        {% for a in acts %}
+          {% if a.note %}
+            <div class="act note pvc" data-ex="{{ a.key }}">
+              <span class="tm">{{ a.tm }}</span>
+              <span class="pvb">{{ a.pv }}</span>
+              <span class="what">
+                <span class="t">{{ a.text }}</span>
+                <span class="p">you · Twin action</span>
+              </span>
+              <span class="st"></span>
+              <span></span>
+            </div>
+          {% else %}
+            <a class="act pvc{{ ' bad' if a.bad }}{{ ' on' if a.on }}" data-ex="{{ a.key }}"
+               href="{{ a.href }}">
+              <span class="tm">{{ a.tm }}</span>
+              {% if a.amb %}
+                <span class="pvb amb" title="The Twin could not tell which connector this was">
+                  {{- a.pv }}</span>
+              {% else %}
+                <span class="pvb">{{ a.pv }}</span>
+              {% endif %}
+              <span class="what">
+                <span class="t">
+                  {{- a.text }}{% if a.injected %} <span class="tag">injected</span>{% endif -%}
+                </span>
+                <span class="p">{{ a.who }} · {{ a.method }} {{ a.path }}</span>
+                {% if a.why %}
+                  <span class="why">{{ a.why }}</span>
+                {% elif a.fix %}
+                  <span class="fix">{{ a.fix }}</span>
+                {% endif %}
+              </span>
+              <span class="st {{ a.st_cls }}">{{ a.status }}</span>
+              {{ icon("chev") }}
+            </a>
+          {% endif %}
+        {% else %}
+          {% if any_activity %}
+            <div class="act-empty">Nothing matches this filter.</div>
+          {% else %}
+            <div class="empty">
+              <div class="col" style="max-width:440px;gap:14px">
+                <h2 style="font:500 18px/24px var(--font-sans)">
+                  Ready. Connect {{ connector }} in Agent Studio.
+                </h2>
+                <ol>
+                  <li>Open Agent Studio and add the connector with the values on the left.</li>
+                  <li>Click Allow on the Twin sign-in page.</li>
+                  <li>Send the chat message.</li>
+                </ol>
+                <div class="waiting">
+                  {{ spin() }}
+                  <span>Every request to the Twin shows up here the moment it arrives.</span>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if drawer %}
+      {% include "_drawer.html" %}
+    {% endif %}
+  </div>
+  {% if settings %}
+    {% include "_settings.html" %}
+  {% endif %}
+</div>

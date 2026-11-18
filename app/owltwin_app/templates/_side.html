@@ -1,0 +1,105 @@
+{# side: what to paste, the chat message, the connection and Twin actions. #}
+{% from "_icons.html" import icon %}
+{% from "_ui.html" import button, copy_btn, post_btn %}
+<aside class="side">
+  <div class="sec pk only-compact">
+    <details class="pick">
+      <summary class="btn" aria-label="Connector: {{ current.name }}">
+        <span class="sdot{{ ' ' + current.dot if current.dot }}" style="margin:0"></span>
+        <span class="nm">{{ current.name }}</span>
+        <span class="dn">{{ icon("chev") }}</span>
+      </summary>
+      <div class="menu">
+        {% for r in rail %}{% include "_pi.html" %}{% endfor %}
+      </div>
+    </details>
+  </div>
+  <div class="sec">
+    <div class="overline">Paste into Agent Studio</div>
+    {% for r in side.paste %}
+      <div class="kv">
+        <span class="k">{{ r.label }}</span>
+        <span class="v">{{ r.value }}</span>
+        {{ copy_btn(r.value, r.label) }}
+      </div>
+    {% else %}
+      <div class="muted">{{ side.nothing }}</div>
+    {% endfor %}
+    <div class="row" style="margin-top:4px">
+      <a class="btn" href="{{ side.studio_url }}" target="_blank" rel="noopener">
+        {{- "Open Agent Studio" }}{{ icon("ext") }}</a>
+    </div>
+    <div class="hint">
+      First time, Chrome warns about the certificate: click the page and type
+      <code class="ic">thisisunsafe</code>.
+    </div>
+  </div>
+
+  {% if side.idp %}
+    {% set idp = side.idp %}
+    <div class="sec">
+      <div class="overline">Google/Microsoft sign-in</div>
+      {% if idp.on %}
+        <div><span class="sdot ok"></span><b>Chrome goes to the Twin</b> for {{ idp.hosts }}</div>
+        <div class="row">{{ post_btn("/idp/off", "Stop intercepting") }}</div>
+        <div class="hint">
+          Turns off by itself once the connection is made, or in {{ idp.left }} min. Real
+          Google/Microsoft sign-in in Chrome does not work meanwhile.
+        </div>
+      {% else %}
+        <div class="muted">
+          Chrome uses the real {{ idp.hosts }}. Sign in to Agent Studio first, then switch on
+          before you click Connect.
+        </div>
+        <div class="row">{{ post_btn("/idp/on", "Intercept sign-in", "btn btn-primary") }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="sec">
+    <div class="overline">Chat message</div>
+    <div class="code wrap">
+      <span>{{ side.prompt }}</span>
+      {{ copy_btn(side.prompt, "chat message") }}
+    </div>
+  </div>
+
+  {% set c = side.conn %}
+  <div class="sec">
+    <div class="overline">Connection</div>
+    <div class="kv2">
+      <span class="k">Status</span>
+      <span><span class="sdot{{ ' ' + c.dot if c.dot }}"></span>
+        {%- if c.bold %}<b>{{ c.bold }}</b>{% endif %}
+        {{- c.rest -}}
+      </span>
+      {% if c.access %}
+        <span class="k">Access token</span>
+        <span class="m">
+          {%- if c.access.token -%}
+            {{ c.access.token }}… · <span data-until="{{ c.access.until }}">
+              {{- c.access.left }} left</span>
+          {%- else -%}
+            none
+          {%- endif -%}
+        </span>
+        <span class="k">Refresh token</span>
+        <span class="m">{{ c.refresh }}…</span>
+      {% endif %}
+      {% for r in c.rows %}
+        <span class="k">{{ r.k }}</span>
+        <span class="{{ r.cls }}">{{ r.v }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="overline">Twin actions</div>
+    <div class="row">
+      {% for b in side.actions %}
+        {{ button(b) }}
+      {% endfor %}
+    </div>
+    <div class="hint">See how Samsara reacts. Every request shows up in Activity.</div>
+  </div>
+</aside>

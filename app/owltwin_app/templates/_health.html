@@ -1,0 +1,39 @@
+{# health: [{"tag"} | {"group"} | {"sep"} | {"more": {"label", "icon", "title", "items"}} |
+   {"bad", "note", "detail", "icon", "label", "hm", "suffix"}].
+   note: "" | "inf" (calm, for your information) | "nt" (amber, never blocks). #}
+{% from "_icons.html" import icon, step_icon %}
+<div class="health">
+  {% for h in health %}
+    {% if h.tag %}
+      <span class="tag">{{ h.tag }}</span>
+    {% elif h.group %}
+      <span class="hg">{{ h.group }}</span>
+    {% elif h.sep %}
+      <span class="hsep"></span>
+    {% elif h.more is defined %}
+      <details class="hmore">
+        <summary class="h" title="{{ h.more.title }}">
+          {{- step_icon(h.more.icon) }}{{ h.more.label -}}
+        </summary>
+        <div class="pop" role="list">
+          {% for m in h.more["items"] %}
+            <div class="pi" role="listitem">
+              {{ step_icon(m.icon) }}
+              <span class="n">{{ m.label }}</span>
+              <span class="hm">{{ m.hm }}</span>
+              {% if m.detail %}<span class="pd">{{ m.detail }}</span>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+    {% else %}
+      <span class="h{{ ' bad' if h.bad }}{{ ' ' + h.note if h.note }}" title="{{ h.detail }}">
+        {{- icon("note") if h.note else step_icon(h.icon) }}{{ h.label }}
+        {%- if h.hm %} <span class="hm">{{ h.hm }}</span>{% endif %}
+        {{- h.suffix -}}
+      </span>
+    {% endif %}
+  {% endfor %}
+  <span class="spacer"></span>
+  <a class="btn btn-quiet sm" href="/?view=setup">Setup details</a>
+</div>

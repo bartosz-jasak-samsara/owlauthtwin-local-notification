@@ -1,0 +1,107 @@
+{# Setup with a session: the steps. Also "Setup details" from Running. #}
+{% from "_icons.html" import icon, step_icon %}
+{% from "_ui.html" import code, post_btn %}
+<div class="app">
+  {% include "_top.html" %}
+  <div class="center">
+    <div class="col" style="gap:20px">
+      {% if from_running %}
+        <div class="row">
+          <a class="btn btn-quiet" href="/">{{ icon("back") }}Back to Running</a>
+        </div>
+        <div>
+          <h1>Setup details</h1>
+          <p class="lead">
+            The same checks keep running while the session is up. Anything that breaks shows up
+            in the health bar.
+          </p>
+        </div>
+      {% else %}
+        <div>
+          <h1>Setting up {{ alias }}</h1>
+          <p class="lead">
+            {% if twin_only %}
+              Twin only: {{ app_name }} sets up the route to the Twin and leaves your env as it is.
+              Notes about your env never stop setup. When the last step is done, it switches to
+              Running by itself.
+            {% else %}
+              Each step checks first, skips what is already there and starts what is missing. You
+              only step in when a card asks you to, for example to log in to AWS SSO. When the last
+              step is done, {{ app_name }} switches to Running by itself.
+            {% endif %}
+          </p>
+        </div>
+        {# The bar and its count are one block, under the lead with the page's usual gap. #}
+        <div class="progw">
+          <span class="muted">{{ done }} of {{ total }} · {{ took }} s</span>
+          <div class="prog{{ ' ' + prog_cls if prog_cls }}" role="progressbar"
+               aria-label="Setup progress" aria-valuemin="0" aria-valuemax="{{ total }}"
+               aria-valuenow="{{ done }}">
+            <i style="width:{{ pct }}%"></i>
+          </div>
+        </div>
+      {% endif %}
+      {% if card %}
+        {% include "_needs_you.html" %}
+      {% endif %}
+
+      <div class="card">
+        {% for st in steps %}
+          {% if st.group_start %}
+            <div class="group overline"
+                 {%- if not loop.first %} style="border-top:1px solid var(--line)"{% endif %}>
+              {{- st.group }}</div>
+          {% endif %}
+          <div class="chk{{ ' ' + st.cls if st.cls }}">
+            {{ step_icon(st.icon) }}
+            <span>
+              <span class="t" style="display:block">{{ st.title }}</span>
+              {% if st.detail %}
+                <span class="d" style="display:block">{{ st.detail }}</span>
+              {% endif %}
+              {% if st.command %}
+                {{ code(st.command, "margin-top:8px") }}
+              {% endif %}
+            </span>
+            <span class="x">{{ st.took }}</span>
+          </div>
+        {% endfor %}
+        {% if obs is not none %}
+          <div class="group overline" style="border-top:1px solid var(--line)">
+            {{- "Your env · checked, not changed" }}</div>
+          {% for o in obs %}
+            <div class="chk obs">
+              {{ icon("note") }}
+              <span>
+                <span class="t" style="display:block">{{ o.title }}</span>
+                <span class="d" style="display:block">Started without
+                  <code class="ic">SSL_CERT_FILE=~/.owltwin/combined-ca.pem</code>, so their calls
+                  to the Twin fail TLS. Restart them with it when you want to connect. Setup
+                  carries on; checked again every 20 s.</span>
+              </span>
+              <span class="x"></span>
+            </div>
+          {% else %}
+            <div class="chk">
+              {{ icon("ok") }}
+              <span>
+                <span class="t" style="display:block">{{ obs_ok }}</span>
+              </span>
+              <span class="x"></span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% if not from_running or twin_only %}
+        <div class="row">
+          {% if twin_only %}
+            <span class="notin">Not in Twin only: repos, sandbox, aiml-agents, backend,
+              callback{{ ", feature flags" if not flags_on }}.</span>
+          {% endif %}
+          <span class="spacer"></span>
+          {% if not from_running %}{{ post_btn("/stop", "Cancel") }}{% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

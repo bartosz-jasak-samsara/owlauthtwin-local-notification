@@ -1,0 +1,67 @@
+# Owl Twin provider: Workday (catalog entry "workday", OAuth client "configured:workday").
+# Dev only. Every secret here is a fake value that exists only inside the Twin.
+schema: 1
+id: workday
+name: Workday connector
+catalog_entry: workday
+oauth_client: configured:workday
+
+# Hosts the Twin answers for. No wildcards. Shared sign-in hosts (Okta, Google,
+# Microsoft login) are refused by `owltwin lint`.
+hosts:
+  browser:            # reached by Chrome through the Mac proxy (consent page)
+    - us.agent.workday.com
+    - odp.agent.workday.com
+  server:             # reached by the backend on the devbox (token, MCP)
+    - us.agent.workday.com
+    - odp.agent.workday.com
+
+tenant: acme
+
+client:
+  id: wd-client-1
+  secret: wd-secret-v1
+  auth: client_secret_post      # client_secret_post | none
+
+# Endpoint paths. {tenant} is the tenant alias from the request path.
+endpoints:
+  authorize: GET /auth/authorize/{tenant}
+  token: POST /auth/oauth2/{tenant}/token
+  revoke: POST /auth/oauth2/{tenant}/revoke
+  mcp: POST /{tenant}/mcp
+
+oauth:
+  pkce: S256                    # S256 | none
+  require_state: true
+  access_token_ttl: 300         # seconds
+  expires_in_as_string: true    # Workday sends "expires_in": "300"
+  rotate_refresh_token: false   # Workday keeps the same refresh token
+  # When the client secret is rotated, Workday keeps already issued tokens.
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Allow Samsara to access Workday ({tenant})?
+
+mcp:
+  server_name: workday-twin-mcp
+  tools:
+    - name: find_staffing_workers
+      description: Find worker records in Workday.
+      input_schema:
+        type: object
+        properties:
+          search: {type: string}
+      result:
+        workers:
+          - {workerId: "WD-{TENANT}-001", name: Alice Kowalski, department: Fleet Operations}
+          - {workerId: "WD-{TENANT}-002", name: Marco Silva, department: Safety & Compliance}
+
+# Chat message that makes the agent call one of the tools above.
+test_prompt: Use Workday to find workers named Alice and list their departments.
+
+# What to paste into Agent Studio. Shown on the Test screen.
+agent_studio:
+  - {label: client_id, value: "{client.id}"}
+  - {label: secret, value: "{client.secret}"}
+  - {label: tenant, value: "{tenant}"}
+  - {label: region, value: us}

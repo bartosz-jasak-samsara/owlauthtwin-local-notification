@@ -1,0 +1,80 @@
+# Owl Twin provider: Google Calendar (catalog entry "google-calendar", static broker provider "google-calendar").
+# Dev only. The client ID is Samsara's public one from ucvoauthflow/providers.go. The secret is what a
+# localdev ucvserver sends without SECRET_* set: the secret key name itself (infra/security/secrets mock).
+schema: 1
+id: google-calendar
+name: Google Calendar connector
+catalog_entry: google-calendar
+oauth_client: google-calendar
+
+hosts:
+  browser:            # Chrome: Google's consent page
+    - accounts.google.com
+  server:             # devbox: token, revoke, Calendar MCP
+    - oauth2.googleapis.com
+    - calendarmcp.googleapis.com
+
+# Google hosts are blocked unless listed here. Chrome reaches the Twin for them only while
+# "Intercept sign-in" is on in the panel; the devbox side answers for the whole session.
+idp_hosts:
+  - accounts.google.com
+  - oauth2.googleapis.com
+  - calendarmcp.googleapis.com
+
+client:
+  id: 327748487390-klhh918ovfhppauhoucrjdjofsqcl1ka.apps.googleusercontent.com
+  secret: app/ucv_google_calendar_client_secret
+  auth: client_secret_post
+
+endpoints:
+  authorize: GET /o/oauth2/v2/auth
+  token: POST /token
+  revoke: POST /revoke
+  mcp: POST /mcp/v1
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3599
+  rotate_refresh_token: false
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Samsara wants to access your Google Calendar
+
+mcp:
+  server_name: calendar-twin-mcp
+  tools:
+    - name: list_events
+      description: List events in a time window.
+      input_schema:
+        type: object
+        properties:
+          calendarId: {type: string}
+          timeMin: {type: string}
+          timeMax: {type: string}
+      result:
+        events:
+          - {id: "evt-001", summary: "Truck 42 service", start: "2026-11-19T09:00:00Z", end: "2026-11-19T10:00:00Z", location: "Depot North"}
+          - {id: "evt-002", summary: "Safety review", start: "2026-11-20T14:00:00Z", end: "2026-11-20T15:00:00Z"}
+    - name: search_events
+      description: Search events by keyword.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        events:
+          - {id: "evt-001", summary: "Truck 42 service", start: "2026-11-19T09:00:00Z"}
+    - name: get_event
+      description: Read one event.
+      input_schema:
+        type: object
+        properties:
+          eventId: {type: string}
+      result:
+        event: {id: "evt-001", summary: "Truck 42 service", attendees: ["alice@acme-fleet.test", "marco@acme-fleet.test"], location: "Depot North"}
+
+test_prompt: Use Google Calendar to find my meetings about truck 42 this week.
+
+agent_studio: []

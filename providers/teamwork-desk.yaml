@@ -1,0 +1,93 @@
+# Owl Twin provider: Teamwork Desk (catalog entry "teamwork-desk", broker DCR fallback).
+# Nothing to paste. Authorization server on the same host as the MCP server; paths are the Twin's own,
+# the broker takes them from the metadata. Dev only.
+schema: 1
+id: teamwork-desk
+name: Teamwork Desk connector
+catalog_entry: teamwork-desk
+
+hosts:
+  browser:
+    - mcp.ai.teamwork.com
+  server:
+    - mcp.ai.teamwork.com
+
+client:
+  registration: dynamic
+  auth_methods: [none, client_secret_post]
+
+discovery:
+  resource: https://mcp.ai.teamwork.com/support
+  issuer: https://mcp.ai.teamwork.com
+  protected_resource: true
+
+endpoints:
+  authorize: GET /oauth/authorize
+  token: POST /oauth/token
+  register: POST /oauth/register
+  revoke: POST /oauth/revoke
+  mcp: POST /support
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: false
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Allow Samsara to access your Teamwork Desk site?
+
+mcp:
+  server_name: teamwork-desk-twin-mcp
+  tools:
+    - name: twdesk-search_tickets
+      description: Search tickets.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        tickets:
+          - {id: 5501, subject: "Truck 42 GPS not reporting", status: open, inbox_id: 12}
+          - {id: 5502, subject: "Driver app login loop", status: pending, inbox_id: 12}
+    - name: twdesk-get_ticket
+      description: Read a ticket.
+      input_schema:
+        type: object
+        properties:
+          ticketId: {type: integer}
+      result:
+        ticket: {id: 5501, subject: "Truck 42 GPS not reporting", status: open, customer_id: 301, messages: ["GPS stopped at 06:10."]}
+    - name: twdesk-list_inboxes
+      description: List inboxes.
+      result:
+        inboxes: [{id: 12, name: Fleet support}]
+    - name: twdesk-get_inbox
+      description: Read an inbox.
+      input_schema:
+        type: object
+        properties:
+          inboxId: {type: integer}
+      result:
+        inbox: {id: 12, name: Fleet support, email: "fleet-support@acme-fleet.test"}
+    - name: twdesk-get_company
+      description: Read a company.
+      input_schema:
+        type: object
+        properties:
+          companyId: {type: integer}
+      result:
+        company: {id: 77, name: Acme Fleet}
+    - name: twdesk-get_customer
+      description: Read a customer.
+      input_schema:
+        type: object
+        properties:
+          customerId: {type: integer}
+      result:
+        customer: {id: 301, name: Alice Kowalski, company_id: 77}
+
+test_prompt: Use Teamwork Desk to find open tickets about truck 42.
+
+agent_studio: []

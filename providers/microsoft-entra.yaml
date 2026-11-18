@@ -1,0 +1,77 @@
+# Owl Twin provider: Microsoft Entra (catalog entry "microsoft-entra", static broker provider "microsoft-365").
+# Dev only. The client ID is Samsara's public one from ucvoauthflow/providers.go. The secret is what a
+# localdev ucvserver sends without SECRET_* set: the secret key name itself (infra/security/secrets mock).
+schema: 1
+id: microsoft-entra
+name: Microsoft Entra connector
+catalog_entry: microsoft-entra
+oauth_client: microsoft-365
+
+hosts:
+  browser:            # Chrome: Microsoft's sign-in and consent page
+    - login.microsoftonline.com
+  server:             # devbox: token, Microsoft MCP Server for Enterprise
+    - login.microsoftonline.com
+    - mcp.svc.cloud.microsoft
+
+# Microsoft sign-in is blocked unless listed here. Chrome reaches the Twin for it only while
+# "Intercept sign-in" is on in the panel; the devbox side answers for the whole session.
+idp_hosts:
+  - login.microsoftonline.com
+
+# The /organizations authority, as in providers.go.
+tenant: organizations
+
+client:
+  id: 290b4bfb-1d04-460d-9f84-1fed0d9d9a6f
+  secret: app/ucv_microsoft365_client_secret
+  auth: client_secret_post
+
+endpoints:
+  authorize: GET /{tenant}/oauth2/v2.0/authorize
+  token: POST /{tenant}/oauth2/v2.0/token
+  mcp: POST /enterprise
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true          # Entra returns a new refresh token on every refresh
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Permissions requested by Samsara
+
+mcp:
+  server_name: microsoft-mcp-enterprise-twin
+  tools:
+    - name: microsoft_graph_suggest_queries
+      description: Suggest Microsoft Graph queries for a question.
+      input_schema:
+        type: object
+        properties:
+          intent: {type: string}
+      result:
+        queries: ["/users?$filter=startswith(displayName,'Alice')", "/groups?$top=10"]
+    - name: microsoft_graph_get
+      description: Run a read-only Microsoft Graph GET request.
+      input_schema:
+        type: object
+        properties:
+          relativeUrl: {type: string}
+      result:
+        value:
+          - {id: "u-001", displayName: Alice Kowalski, department: Fleet Operations, userPrincipalName: "alice@contoso.test"}
+          - {id: "u-002", displayName: Marco Silva, department: Safety & Compliance, userPrincipalName: "marco@contoso.test"}
+    - name: microsoft_graph_list_properties
+      description: List the properties of a Microsoft Graph entity.
+      input_schema:
+        type: object
+        properties:
+          entity: {type: string}
+      result:
+        properties: [id, displayName, department, userPrincipalName, jobTitle]
+
+test_prompt: Use Microsoft Entra to find users named Alice and list their departments.
+
+agent_studio: []

@@ -1,0 +1,146 @@
+{# The Twin's sign-in and consent page (Chrome, browser listener).
+   Values come from the request: autoescaped. #}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OwlAuth Twin · {{ name }}</title>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&display=swap">
+  <style>
+    :root {
+      --surface: #1c1917;
+      --ink: #f5f4f1;
+      --muted: #b9b6ad;
+      --accent: #feae0f;
+      --elev-1: #262320;
+      --line: #403b35;
+      --line-control: #756e62;
+      --sans: "FK Grotesk", "Instrument Sans", system-ui, -apple-system, sans-serif;
+      --mono: "FK Grotesk Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--surface);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 22px;
+      display: flex;
+      justify-content: center;
+      padding: 72px 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 520px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--elev-1);
+    }
+    .armed {
+      background: var(--accent);
+      color: var(--surface);
+      font-weight: 500;
+      font-size: 13px;
+      line-height: 18px;
+      padding: 8px 24px;
+    }
+    .in { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .top { display: flex; align-items: center; gap: 8px; }
+    .badge {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 12px;
+      line-height: 16px;
+      background: var(--ink);
+      color: var(--surface);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .muted { color: var(--muted); font-size: 13px; line-height: 18px; }
+    h1 {
+      margin: 0;
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 28px;
+      letter-spacing: -0.005em;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 6px 12px;
+      margin: 0;
+      font-size: 13px;
+      line-height: 18px;
+    }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+    .row { display: flex; gap: 8px; margin-top: 4px; }
+    a.btn {
+      display: inline-flex;
+      align-items: center;
+      height: 40px;
+      padding: 0 20px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 14px;
+      border: 1px solid var(--line-control);
+      color: var(--ink);
+    }
+    a.btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+    a.ok { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    {% if armed %}
+      <div class="armed">{{ armed }}</div>
+    {% endif %}
+    {% if errors %}
+      <div class="in">
+        <div class="top">
+          <span class="badge">OwlAuth Twin</span>
+          <span class="muted">request rejected</span>
+        </div>
+        <h1>This sign-in request is not valid</h1>
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+        <p class="muted">The real vendor would reject it too. Fix the connector or {{ file }}.</p>
+      </div>
+    {% else %}
+      <div class="in">
+        <div class="top">
+          <span class="badge">OwlAuth Twin</span>
+          <span class="muted">not the real vendor · dev only</span>
+        </div>
+        <h1>{{ title }}</h1>
+        <dl>
+          <dt>client_id</dt>
+          <dd>{{ client_id }}</dd>
+          <dt>redirect_uri</dt>
+          <dd>{{ redirect_uri }}</dd>
+          {% if sends_to %}
+            <dt>sends you to</dt>
+            <dd>{{ sends_to }}</dd>
+          {% endif %}
+          <dt>scope</dt>
+          <dd>{{ scope }}</dd>
+        </dl>
+        <div class="row">
+          <a class="btn ok" href="?{{ approve }}">Allow</a>
+          <a class="btn" href="?{{ deny }}">Deny</a>
+        </div>
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>

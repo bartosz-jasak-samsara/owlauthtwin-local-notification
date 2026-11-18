@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# owltwin: starts the OwlAuth Twin app on this Mac and prints its address.
+#
+#   owltwin                 start the app and open the panel
+#   owltwin --no-open       start without opening the browser
+#   owltwin lint [name...]  check provider YAML files in ./providers
+#   owltwin update          pull the latest version (git pull --ff-only) and its packages
+#
+# Dev only. Needs uv (brew install uv). Env: OWLTWIN_PORT (panel, 18200),
+# OWLTWIN_PROXY_PORT (18201), OWLTWIN_SERVER_PORT (18443), OWLTWIN_STATE_DIR,
+# OWLTWIN_NO_SYSTEM_PROXY=1 (leave macOS proxy alone), OWLTWIN_NO_DEVBOX=1.
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+command -v uv >/dev/null || { echo "owltwin: uv is missing (brew install uv)" >&2; exit 1; }
+if [[ "${1:-}" == update ]]; then
+  git -C "$here" pull --ff-only
+  cd "$here/app" && exec uv sync --quiet --frozen --no-dev
+fi
+cmd=serve
+if [[ "${1:-}" == lint ]]; then cmd=lint; shift; fi
+cd "$here/app"
+exec uv run --quiet python -m owltwin_app "$cmd" "$@"

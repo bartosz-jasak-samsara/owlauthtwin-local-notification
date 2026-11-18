@@ -1,0 +1,30 @@
+{# card: the one thing you have to do now.
+   {"failed", "title", "detail", "command", "link", "link_label", "buttons", "hint"} #}
+{% from "_ui.html" import button, code %}
+<div class="{{ 'card youcard bad' if card.failed else 'card youcard' }}" role="status">
+  <div class="row">
+    {% if card.failed %}
+      <span class="badge bad">Failed</span>
+    {% else %}
+      <span class="badge you">Needs you</span>
+    {% endif %}
+    <h2>{{ card.title }}</h2>
+  </div>
+  <div class="muted" style="font-size:14px;line-height:20px">{{ card.detail }}</div>
+  {% if card.command %}
+    {{ code(card.command) }}
+  {% endif %}
+  <div class="row">
+    {% if card.link %}
+      <a class="btn btn-primary" href="{{ card.link }}" target="_blank" rel="noopener">
+        {{- card.link_label }}</a>
+    {% else %}
+      {% for b in card.buttons %}
+        {{ button(b) }}
+      {% endfor %}
+    {% endif %}
+    {% if card.hint %}
+      <span class="hint">Checked again on its own every few seconds.</span>
+    {% endif %}
+  </div>
+</div>

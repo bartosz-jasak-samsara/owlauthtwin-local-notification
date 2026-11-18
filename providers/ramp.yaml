@@ -1,0 +1,92 @@
+# Owl Twin provider: Ramp connector (catalog entry "ramp", broker DCR fallback).
+# Nothing to paste. Ramp publishes RFC 9728/8414 metadata and anonymous DCR for a public PKCE client.
+# The authorization server is modelled on the same host; paths are the Twin's own, the broker takes them
+# from the metadata. Real Ramp also checks the redirect URI against an allowlist; the Twin does not. Dev only.
+schema: 1
+id: ramp
+name: Ramp connector
+catalog_entry: ramp
+
+hosts:
+  browser:
+    - mcp.ramp.com
+  server:
+    - mcp.ramp.com
+
+client:
+  registration: dynamic
+  auth_methods: [none]
+
+discovery:
+  resource: https://mcp.ramp.com/mcp
+  issuer: https://mcp.ramp.com
+  protected_resource: true
+
+endpoints:
+  authorize: GET /oauth/authorize
+  token: POST /oauth/token
+  register: POST /oauth/register
+  revoke: POST /oauth/revoke
+  mcp: POST /mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Allow Samsara to access your Ramp business?
+
+mcp:
+  server_name: ramp-twin-mcp
+  tools:
+    - name: ramp_get_transactions
+      description: List card transactions.
+      input_schema:
+        type: object
+        properties:
+          from_date: {type: string}
+          to_date: {type: string}
+          merchant: {type: string}
+      result:
+        transactions:
+          - {id: "tx-901", merchant: "Pilot Flying J", amount: 412.55, currency: USD, user: "Alice Kowalski", date: "2026-11-14", memo: "Truck 42 fuel"}
+          - {id: "tx-902", merchant: "Fleet Pride", amount: 1280.00, currency: USD, user: "Marco Silva", date: "2026-11-15", memo: "Brake pads"}
+    - name: ramp_search_bills
+      description: Search bills.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        bills:
+          - {id: "bill-31", vendor: "Fleet Pride", invoice_number: "FP-7781", amount: 1280.00, status: "Awaiting approval"}
+    - name: ramp_search_vendors
+      description: Search vendors.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        vendors: [{id: "v-5", name: "Fleet Pride"}]
+    - name: ramp_token_info
+      description: What this connection can use.
+      result:
+        scopes: [transactions:read, bills:read, bills:write, vendors:read]
+        hidden_tools: []
+    - name: ramp_create_draft_bill
+      description: Create a draft bill (write; needs approval).
+      input_schema:
+        type: object
+        properties:
+          vendor_id: {type: string}
+          invoice_number: {type: string}
+          idempotency_key: {type: string}
+      result:
+        draft_bill: {id: "draft-77", status: draft, url: "https://app.ramp.com/bills/draft-77"}
+
+test_prompt: Use Ramp to list last week's fuel and maintenance spend for truck 42.
+
+agent_studio: []

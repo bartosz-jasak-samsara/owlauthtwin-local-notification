@@ -1,0 +1,94 @@
+# Owl Twin provider: Atlassian over OAuth (catalog entry "atlassian-oauth", broker DCR fallback).
+# Like the real server there is no RFC 9728 metadata: the broker falls back to the resource origin,
+# https://mcp.atlassian.com, reads its RFC 8414 metadata and registers a client. Paths are the Twin's own.
+# The only thing to enter in Agent Studio is the site's cloudId. Dev only.
+schema: 1
+id: atlassian-oauth
+name: Atlassian connector (OAuth)
+catalog_entry: atlassian-oauth
+
+hosts:
+  browser:
+    - mcp.atlassian.com
+  server:
+    - mcp.atlassian.com
+
+client:
+  registration: dynamic
+  auth_methods: [none, client_secret_post]
+
+discovery:
+  resource: https://mcp.atlassian.com/v1/mcp
+  protected_resource: false      # issuer = https://mcp.atlassian.com
+
+endpoints:
+  authorize: GET /v1/authorize
+  token: POST /v1/token
+  register: POST /v1/register
+  mcp: POST /v1/mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Samsara is requesting access to your Atlassian account
+
+mcp:
+  server_name: atlassian-twin-mcp
+  tools:
+    - name: atlassianUserInfo
+      description: Who the token belongs to.
+      result:
+        account_id: "twin-0001"
+        email: alice@acme-fleet.test
+    - name: getConfluenceSpaces
+      description: List Confluence spaces.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+      result:
+        spaces:
+          - {key: FLEET, name: Fleet Operations}
+          - {key: SAFE, name: Safety & Compliance}
+    - name: searchConfluenceUsingCql
+      description: Search Confluence with CQL.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          cql: {type: string}
+      result:
+        results:
+          - {id: "1001", title: "Truck 42 maintenance runbook", space: FLEET}
+          - {id: "1002", title: "Brake inspection checklist", space: SAFE}
+    - name: getConfluencePage
+      description: Read a Confluence page.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          pageId: {type: string}
+      result:
+        title: Truck 42 maintenance runbook
+        body: "Replace brake pads below 30%. Book service at Depot North."
+    - name: createJiraIssue
+      description: Create a Jira issue (write).
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          projectKey: {type: string}
+          summary: {type: string}
+      result:
+        key: FLEET-123
+        url: "https://acme-fleet.atlassian.net/browse/FLEET-123"
+
+test_prompt: Use Atlassian to search Confluence for the truck 42 maintenance runbook and summarize it.
+
+agent_studio:
+  - {label: cloudId, value: twin-cloud-0001}

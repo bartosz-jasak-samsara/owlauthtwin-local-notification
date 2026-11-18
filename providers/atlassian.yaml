@@ -1,0 +1,78 @@
+# Owl Twin provider: Atlassian with an API token (catalog entry "atlassian", static credential, Basic).
+# No OAuth: in Agent Studio you enter the email and API token below, and the gateway sends them as
+# "Authorization: Basic base64(email:token)" on every MCP call. Dev only, fake values.
+schema: 1
+id: atlassian
+name: Atlassian connector (API token)
+catalog_entry: atlassian
+
+hosts:
+  server:             # devbox: Atlassian's Rovo MCP server. No browser hosts: Chrome never goes to Atlassian here.
+    - mcp.atlassian.com
+
+api_key:
+  scheme: basic
+  username: twin-bot@acme-fleet.test
+  secret: atl-api-token-v1
+
+endpoints:
+  mcp: POST /v1/mcp
+
+mcp:
+  server_name: atlassian-twin-mcp
+  tools:
+    - name: atlassianUserInfo
+      description: Who the credential belongs to.
+      result:
+        account_id: "twin-0001"
+        email: twin-bot@acme-fleet.test
+    - name: getConfluenceSpaces
+      description: List Confluence spaces.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+      result:
+        spaces:
+          - {key: FLEET, name: Fleet Operations}
+          - {key: SAFE, name: Safety & Compliance}
+    - name: searchConfluenceUsingCql
+      description: Search Confluence with CQL.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          cql: {type: string}
+      result:
+        results:
+          - {id: "1001", title: "Truck 42 maintenance runbook", space: FLEET}
+          - {id: "1002", title: "Brake inspection checklist", space: SAFE}
+    - name: getConfluencePage
+      description: Read a Confluence page.
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          pageId: {type: string}
+      result:
+        title: Truck 42 maintenance runbook
+        body: "Replace brake pads below 30%. Book service at Depot North."
+    - name: createJiraIssue
+      description: Create a Jira issue (write).
+      input_schema:
+        type: object
+        properties:
+          cloudId: {type: string}
+          projectKey: {type: string}
+          summary: {type: string}
+      result:
+        key: FLEET-123
+        url: "https://acme-fleet.atlassian.net/browse/FLEET-123"
+
+test_prompt: Use Atlassian to search Confluence for the truck 42 maintenance runbook and summarize it.
+
+# Enter these in Agent Studio when you connect.
+agent_studio:
+  - {label: email, value: "{api_key.username}"}
+  - {label: API token, value: "{api_key.secret}"}
+  - {label: cloudId, value: twin-cloud-0001}

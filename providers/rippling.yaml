@@ -1,0 +1,58 @@
+# Owl Twin provider: Rippling (catalog entry "rippling", broker DCR fallback).
+# Nothing to paste. Like the real MCP Gateway, the authorization server sits on the same host and
+# takes public clients only (token_endpoint_auth_method "none", PKCE). Paths are the Twin's own. Dev only.
+schema: 1
+id: rippling
+name: Rippling connector
+catalog_entry: rippling
+
+hosts:
+  browser:
+    - mcpgateway.rippling.com
+  server:
+    - mcpgateway.rippling.com
+
+client:
+  registration: dynamic
+  auth_methods: [none]
+
+discovery:
+  resource: https://mcpgateway.rippling.com/api/v1/proxy/mcp/mcp
+  issuer: https://mcpgateway.rippling.com
+  protected_resource: true
+
+endpoints:
+  authorize: GET /oauth/authorize
+  token: POST /oauth/token
+  register: POST /oauth/register
+  revoke: POST /oauth/revoke
+  mcp: POST /api/v1/proxy/mcp/mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Allow Samsara to use Rippling as you?
+
+mcp:
+  server_name: rippling-twin-mcp
+  tools:
+    - name: code
+      description: Run a Code Mode program against the codemode.* functions your admin assigned.
+      input_schema:
+        type: object
+        properties:
+          code: {type: string}
+      result:
+        output:
+          employees:
+            - {name: Alice Kowalski, department: Fleet Operations, manager: Marco Silva, time_off: "2026-11-24 to 2026-11-26"}
+            - {name: Marco Silva, department: Safety & Compliance, manager: null, time_off: null}
+
+test_prompt: Use Rippling to list who in Fleet Operations is off next week.
+
+agent_studio: []

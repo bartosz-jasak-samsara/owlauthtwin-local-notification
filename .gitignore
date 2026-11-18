@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+*.pyc
+.ruff_cache/
+.DS_Store
+.pytest_cache/
+.vscode/
+.idea/
+# Keys and certificates live in ~/.local/state/owltwin, never here.
+*.pem
+*.key
+.env*

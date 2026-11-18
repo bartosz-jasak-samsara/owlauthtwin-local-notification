@@ -1,0 +1,90 @@
+# Owl Twin provider: MangoApps Wiki (catalog entry "mangoapps-wiki", broker DCR fallback).
+# Nothing to paste. Authorization server on the same host as the MCP server; paths are the Twin's own,
+# the broker takes them from the metadata. Dev only.
+schema: 1
+id: mangoapps-wiki
+name: MangoApps Wiki connector
+catalog_entry: mangoapps-wiki
+
+hosts:
+  browser:
+    - mcp.iq.mangoapps.com
+  server:
+    - mcp.iq.mangoapps.com
+
+client:
+  registration: dynamic
+  auth_methods: [none, client_secret_post]
+
+discovery:
+  resource: https://mcp.iq.mangoapps.com/api/v1/mcp
+  issuer: https://mcp.iq.mangoapps.com
+  protected_resource: true
+
+endpoints:
+  authorize: GET /oauth/authorize
+  token: POST /oauth/token
+  register: POST /oauth/register
+  revoke: POST /oauth/revoke
+  mcp: POST /api/v1/mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: false
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Allow Samsara to read your MangoApps wikis?
+
+mcp:
+  server_name: mangoapps-twin-mcp
+  tools:
+    - name: search_wikis
+      description: Search wikis.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        wikis:
+          - {id: "w-11", title: "Pre-trip inspection", updated: "2026-11-02"}
+          - {id: "w-12", title: "Brake service policy", updated: "2026-10-21"}
+    - name: get_wiki_content
+      description: Read a wiki's content.
+      input_schema:
+        type: object
+        properties:
+          wikiId: {type: string}
+      result:
+        title: Brake service policy
+        content: "Service brakes when pads are below 30%. Log the work order in Samsara."
+    - name: get_wiki_details
+      description: Read a wiki's details.
+      input_schema:
+        type: object
+        properties:
+          wikiId: {type: string}
+      result:
+        wiki: {id: "w-12", title: "Brake service policy", owner: "Marco Silva"}
+    - name: list_wikis
+      description: List wikis.
+      result:
+        wikis: [{id: "w-11", title: "Pre-trip inspection"}, {id: "w-12", title: "Brake service policy"}]
+    - name: get_wiki_versions
+      description: List a wiki's versions.
+      result:
+        versions: [{version: 3, date: "2026-10-21"}]
+    - name: get_wiki_comments
+      description: Read a wiki's comments.
+      result:
+        comments: [{author: "Alice Kowalski", body: "Updated for the new pads."}]
+    - name: get_wiki_stats
+      description: Read a wiki's statistics.
+      result:
+        views: 128
+
+test_prompt: Use MangoApps Wiki to find the brake service policy and summarize it.
+
+agent_studio: []

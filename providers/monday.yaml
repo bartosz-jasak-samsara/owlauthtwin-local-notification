@@ -1,0 +1,88 @@
+# Owl Twin provider: monday.com (catalog entry "monday", broker DCR fallback).
+# Nothing to paste: the broker reads RFC 9728 metadata on mcp.monday.com, which points at the
+# authorization server auth.monday.com/mcp, reads its RFC 8414 metadata and registers a client (RFC 7591).
+# Like the real server, a request for a public client ("none") is registered as client_secret_post.
+# Endpoint paths are the Twin's own: the broker takes them from the metadata. Dev only.
+schema: 1
+id: monday
+name: monday.com connector
+catalog_entry: monday
+
+hosts:
+  browser:            # Chrome: consent page on the authorization server
+    - auth.monday.com
+  server:             # devbox: discovery, registration, token, MCP
+    - mcp.monday.com
+    - auth.monday.com
+
+client:
+  registration: dynamic
+  auth_methods: [none, client_secret_post]
+  registers_as: client_secret_post
+
+discovery:
+  resource: https://mcp.monday.com/mcp
+  issuer: https://auth.monday.com/mcp
+  protected_resource: true
+
+endpoints:
+  authorize: GET /mcp/authorize
+  token: POST /mcp/token
+  register: POST /mcp/register
+  revoke: POST /mcp/revoke
+  mcp: POST /mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Samsara wants to access your monday.com account
+
+mcp:
+  server_name: monday-twin-mcp
+  tools:
+    - name: search
+      description: Search boards, items and docs.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        results:
+          - {type: board, id: "b-100", name: "Fleet maintenance"}
+          - {type: item, id: "i-4201", name: "Truck 42 brake service", board_id: "b-100"}
+    - name: get_board_info
+      description: Read a board's columns.
+      input_schema:
+        type: object
+        properties:
+          boardId: {type: string}
+      result:
+        board: {id: "b-100", name: "Fleet maintenance", columns: [{id: status, title: Status}, {id: vehicle, title: Vehicle}, {id: due, title: Due date}]}
+    - name: get_board_items_page
+      description: Read items on a board.
+      input_schema:
+        type: object
+        properties:
+          boardId: {type: string}
+      result:
+        items:
+          - {id: "i-4201", name: "Truck 42 brake service", status: "Scheduled", vehicle: "Truck 42", due: "2026-11-19"}
+          - {id: "i-4202", name: "Truck 17 tire rotation", status: "Done", vehicle: "Truck 17", due: "2026-11-12"}
+    - name: get_updates
+      description: Read item comments.
+      input_schema:
+        type: object
+        properties:
+          itemIds: {type: array, items: {type: string}}
+      result:
+        updates:
+          - {item_id: "i-4201", author: "Alice Kowalski", body: "Parts arrive Wednesday."}
+
+test_prompt: Use monday.com to find the maintenance items for truck 42 and their status.
+
+agent_studio: []

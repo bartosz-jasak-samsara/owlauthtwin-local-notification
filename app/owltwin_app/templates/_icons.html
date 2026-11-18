@@ -1,0 +1,93 @@
+{# SVG icons: static markup, nothing from requests. No whitespace around the SVG. #}
+{% macro icon(name) -%}
+  {%- if name == "ok" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Passed">
+      <circle cx="8" cy="8" r="7" fill="currentColor"/>
+      <path d="M5 8.2L7 10.2L11 6" stroke="var(--surface)" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {%- elif name == "fail" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Failed">
+      <circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M5.8 5.8L10.2 10.2M10.2 5.8L5.8 10.2" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round"/>
+    </svg>
+  {%- elif name == "running" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="In progress">
+      <circle cx="8" cy="8" r="6.3" stroke="var(--line-control)" stroke-width="1.4"/>
+      <path d="M8 1.7A6.3 6.3 0 0 1 14.3 8" stroke="var(--accent)" stroke-width="1.6"
+            stroke-linecap="round"/>
+    </svg>
+  {%- elif name == "pending" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Pending">
+      <circle cx="8" cy="8" r="6.3" stroke="var(--line-control)" stroke-width="1.4"
+              stroke-dasharray="2 2.2"/>
+    </svg>
+  {%- elif name == "you" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Needs you">
+      <circle cx="8" cy="8" r="7" fill="var(--accent)"/>
+      <path d="M8 4.5V8.8" stroke="var(--on-accent)" stroke-width="1.7" stroke-linecap="round"/>
+      <circle cx="8" cy="11.2" r="1" fill="var(--on-accent)"/>
+    </svg>
+  {%- elif name == "skipped" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Skipped">
+      <path d="M5 8H11" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  {%- elif name == "note" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-label="Note">
+      <circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M8 4.8V8.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <circle cx="8" cy="11" r="1" fill="currentColor"/>
+    </svg>
+  {%- elif name == "dot" -%}
+    <svg class="i" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="3" fill="currentColor"/>
+    </svg>
+  {%- elif name == "copy" -%}
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M10.5 3V2.5H2.5V10.5H3" stroke="currentColor" stroke-width="1.4"
+            stroke-linecap="round"/>
+    </svg>
+  {%- elif name == "ext" -%}
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M6 3.5H12.5V10M12.5 3.5L4 12" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {%- elif name == "chev" -%}
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {%- elif name == "close" -%}
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round"/>
+    </svg>
+  {%- elif name == "back" -%}
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro spin() -%}
+  <span class="spin">{{ icon("running") }}</span>
+{%- endmacro %}
+
+{# A step's state as an icon: running spins, waiting (for another step) spins slowly and
+   quietly, needs_you gets the accent mark. #}
+{% macro step_icon(state) -%}
+  {%- if state == "running" -%}
+    {{ spin() }}
+  {%- elif state == "waiting" -%}
+    <span class="spin wait" aria-label="Waiting">{{ icon("running") }}</span>
+  {%- elif state == "needs_you" -%}
+    {{ icon("you") }}
+  {%- elif state in ("ok", "fail", "skipped") -%}
+    {{ icon(state) }}
+  {%- else -%}
+    {{ icon("pending") }}
+  {%- endif -%}
+{%- endmacro %}

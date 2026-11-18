@@ -1,0 +1,77 @@
+# Owl Twin provider: Microsoft 365 (catalog entry "microsoft-365", static broker provider "microsoft-workiq").
+# Dev only. The client ID is Samsara's public one from ucvoauthflow/providers.go. The secret is what a
+# localdev ucvserver sends without SECRET_* set: the secret key name itself (infra/security/secrets mock).
+schema: 1
+id: microsoft-365
+name: Microsoft 365 connector
+catalog_entry: microsoft-365
+oauth_client: microsoft-workiq
+
+hosts:
+  browser:            # Chrome: Microsoft's sign-in and consent page
+    - login.microsoftonline.com
+  server:             # devbox: token, Work IQ MCP
+    - login.microsoftonline.com
+    - workiq.svc.cloud.microsoft
+
+# Microsoft sign-in is blocked unless listed here. Chrome reaches the Twin for it only while
+# "Intercept sign-in" is on in the panel; the devbox side answers for the whole session.
+idp_hosts:
+  - login.microsoftonline.com
+
+# The /organizations authority, as in providers.go.
+tenant: organizations
+
+client:
+  id: ff52a633-4ccc-4cfb-acde-93f1eecbfe20
+  secret: app/ucv_microsoft365_workiq_client_secret
+  auth: client_secret_post
+
+endpoints:
+  authorize: GET /{tenant}/oauth2/v2.0/authorize
+  token: POST /{tenant}/oauth2/v2.0/token
+  mcp: POST /mcp
+
+oauth:
+  pkce: S256
+  require_state: true
+  access_token_ttl: 3600
+  rotate_refresh_token: true          # Entra returns a new refresh token on every refresh
+  revoke_tokens_on_secret_rotation: false
+
+consent:
+  title: Permissions requested by Samsara
+
+mcp:
+  server_name: workiq-twin-mcp
+  tools:
+    - name: fetch
+      description: Read Microsoft Graph paths, such as mail and calendar.
+      input_schema:
+        type: object
+        properties:
+          entityUrls: {type: array, items: {type: string}}
+      result:
+        value:
+          - {id: "msg-001", subject: "Truck 42 inspection report", from: "alice@contoso.test", receivedDateTime: "2026-11-17T08:12:00Z", bodyPreview: "Brake pads at 30%."}
+          - {id: "msg-002", subject: "Driver schedule next week", from: "marco@contoso.test", receivedDateTime: "2026-11-16T15:40:00Z", bodyPreview: "Updated shifts attached."}
+    - name: search_paths
+      description: Find the Microsoft Graph path for a question.
+      input_schema:
+        type: object
+        properties:
+          query: {type: string}
+      result:
+        paths: ["/me/messages", "/me/calendarView"]
+    - name: get_schema
+      description: List the fields of a Microsoft Graph entity.
+      input_schema:
+        type: object
+        properties:
+          entity: {type: string}
+      result:
+        fields: [id, subject, from, receivedDateTime, bodyPreview]
+
+test_prompt: Use Microsoft 365 to find emails about truck 42 and summarize them.
+
+agent_studio: []
