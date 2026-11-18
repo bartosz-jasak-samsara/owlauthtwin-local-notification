@@ -5,6 +5,8 @@
 schema: 1
 id: ramp
 name: Ramp connector
+# The vendor's own icon, shown on the consent page.
+logo: https://ramp.com/favicon.ico
 catalog_entry: ramp
 
 hosts:

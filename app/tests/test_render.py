@@ -408,6 +408,16 @@ class ConsentTest(unittest.TestCase):
         self.assertIn(EVIL, t.all_text)
         self.assertIn(p.consent_title, t.all_text)
 
+    def test_consent_shows_the_vendor_logo_or_its_initial(self):
+        p = BY_FILE["gmail.yaml"].provider
+        q = {"client_id": p.client_id, "redirect_uri": "r", "state": "s"}
+        body = twin_mod.consent_page(p, q, host="accounts.google.com")
+        self.assertIn(p.logo, [i.get("src") for i in Tags(body).find("img")])
+        self.assertIn("accounts.google.com", Tags(body).all_text)
+        plain = twin_mod.consent_page(dataclasses.replace(p, logo=""), q)
+        self.assertNotIn('class="logo"', plain)
+        self.assertIn("G", Tags(plain).all_text)
+
     def test_consent_errors(self):
         p = BY_FILE["workday.yaml"].provider
         body = twin_mod.consent_page(p, {"client_id": EVIL}, error=[EVIL, "PKCE missing"])

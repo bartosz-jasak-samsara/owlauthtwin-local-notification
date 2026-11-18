@@ -4,6 +4,8 @@
 schema: 1
 id: microsoft-365
 name: Microsoft 365 connector
+# The vendor's own icon, shown on the consent page.
+logo: https://www.microsoft.com/favicon.ico
 catalog_entry: microsoft-365
 oauth_client: microsoft-workiq
 

@@ -56,6 +56,20 @@ endpoints: {mcp: POST /mcp}
 """))
         self.assertEqual((p.mode, p.browser_hosts), ("api_key", []))
 
+    def test_logo_must_be_https_and_not_a_company_host(self):
+        base = """schema: 1
+id: k
+hosts: {server: [mcp.k.test]}
+api_key: {scheme: basic, username: u, secret: s}
+endpoints: {mcp: POST /mcp}
+"""
+        ok = load_provider(write(base + "logo: https://www.microsoft.com/favicon.ico\n"))
+        self.assertEqual(ok.logo, "https://www.microsoft.com/favicon.ico")
+        for bad in ("http://k.test/logo.png", "https://cdn.samsara.com/logo.png"):
+            with self.assertRaises(LintError, msg=bad) as cm:
+                load_provider(write(base + f"logo: {bad}\n"))
+            self.assertTrue(any(x.startswith("logo:") for x in cm.exception.problems))
+
 
 class TwinHelpersTest(unittest.TestCase):
     def test_fix_callback(self):

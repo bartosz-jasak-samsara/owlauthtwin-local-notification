@@ -3,6 +3,8 @@
 schema: 1
 id: workday
 name: Workday connector
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://www.workday.com/favicon.ico
 catalog_entry: workday
 oauth_client: configured:workday
 

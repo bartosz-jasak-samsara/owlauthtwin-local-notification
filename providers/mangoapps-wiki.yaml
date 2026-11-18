@@ -4,6 +4,8 @@
 schema: 1
 id: mangoapps-wiki
 name: MangoApps Wiki connector
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://www.mangoapps.com/favicon.ico
 catalog_entry: mangoapps-wiki
 
 hosts:

@@ -4,6 +4,8 @@
 schema: 1
 id: gmail
 name: Gmail connector
+# The vendor's own icon, shown on the consent page.
+logo: https://www.gstatic.com/images/branding/product/1x/gmail_2020q4_48dp.png
 catalog_entry: gmail
 oauth_client: google-gmail
 

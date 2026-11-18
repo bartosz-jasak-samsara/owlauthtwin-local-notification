@@ -6,6 +6,8 @@
 schema: 1
 id: monday
 name: monday.com connector
+# The vendor's own icon, shown on the consent page.
+logo: https://monday.com/favicon.ico
 catalog_entry: monday
 
 hosts:

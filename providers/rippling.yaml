@@ -4,6 +4,8 @@
 schema: 1
 id: rippling
 name: Rippling connector
+# The catalog's LogoUrl (rippling.com/favicon.ico) is a 404; this is the site's own icon.
+logo: https://www.rippling.com/favicons/apple-touch-icon.png
 catalog_entry: rippling
 
 hosts:

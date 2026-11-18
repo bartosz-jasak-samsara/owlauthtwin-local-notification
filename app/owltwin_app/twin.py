@@ -828,7 +828,7 @@ class TwinHandler(http.server.BaseHTTPRequestHandler):
         if p.oauth["pkce"] == "S256" and not has_pkce:
             problems.append("PKCE S256 code_challenge is missing")
         if problems:
-            page = consent_page(p, q, error=problems)
+            page = consent_page(p, q, error=problems, host=ex.host)
             self._html(ex, 400, page, ok=False, reason="; ".join(problems))
             return
         redirect = q["redirect_uri"]
@@ -868,7 +868,9 @@ class TwinHandler(http.server.BaseHTTPRequestHandler):
             self._redirect(ex, f"{target}{sep}code={quoted_code}&state={quoted_state}")
             return
         consent_query = {**q, PORT_PARAM: str(port)} if port else q
-        self._html(ex, 200, consent_page(p, consent_query, sends_to=target if fix else ""))
+        self._html(ex, 200, consent_page(
+            p, consent_query, sends_to=target if fix else "", host=ex.host,
+        ))
 
     def _client_ok(self, ex: Exchange, form: dict[str, str]) -> bool:
         st, p = self.state, self.state.provider
@@ -1151,16 +1153,29 @@ class TwinHandler(http.server.BaseHTTPRequestHandler):
 
 def consent_page(
     p: Provider, q: dict[str, str], error: list[str] | None = None, armed: str | None = None,
-    sends_to: str = "",
+    sends_to: str = "", host: str = "",
 ) -> str:
     """The sign-in page Chrome sees (templates/consent.html), or the list of reasons the request
-    is invalid."""
+    is invalid. host is the vendor host Chrome asked for (the Twin answers in its place)."""
+    vendor = " ".join(p.name.replace("connector", "").split())
+    scope = q.get("scope", "")
+    scopes = [
+        {"full": s, "short": s.rstrip("/").rsplit("/", 1)[-1] or s} for s in scope.split()
+    ]
+    redirect = q.get("redirect_uri", "")
+    hue = int(hashlib.sha256(p.id.encode()).hexdigest()[:4], 16) % 360
     return render_template(
         "consent.html",
-        name=p.name, title=p.consent_title, file=p.path.name,
+        name=p.name, vendor=vendor, monogram=(vendor[:1] or "?").upper(), hue=hue, logo=p.logo,
+        host=host or (p.browser_hosts[0] if p.browser_hosts else ""),
+        kind=p.kind_label, tenant="" if p.tenant == "default" else p.tenant,
+        title=p.consent_title, file=p.path.name,
         armed=armed or "", errors=error or [],
-        client_id=q.get("client_id", ""), redirect_uri=q.get("redirect_uri", ""),
-        sends_to=sends_to.split("?")[0], scope=q.get("scope", "") or "(default)",
+        client_id=q.get("client_id", ""), redirect_uri=redirect,
+        returns_to=urllib.parse.urlsplit(redirect).netloc or redirect,
+        sends_to=sends_to.split("?")[0], scope=scope or "(default)", scopes=scopes,
+        state=q.get("state", ""),
+        pkce=q.get("code_challenge_method", "") if q.get("code_challenge") else "",
         approve=urllib.parse.urlencode({**q, "decision": "approve"}),
         deny=urllib.parse.urlencode({**q, "decision": "deny"}),
     )

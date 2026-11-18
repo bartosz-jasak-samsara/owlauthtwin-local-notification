@@ -5,6 +5,8 @@
 schema: 1
 id: ramp-demo
 name: Ramp Demo Sandbox connector
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://ramp.com/favicon.ico
 catalog_entry: ramp-demo
 
 hosts:

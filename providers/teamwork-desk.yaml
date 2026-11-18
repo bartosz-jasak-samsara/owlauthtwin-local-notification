@@ -4,6 +4,8 @@
 schema: 1
 id: teamwork-desk
 name: Teamwork Desk connector
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://www.teamwork.com/favicon.ico
 catalog_entry: teamwork-desk
 
 hosts:

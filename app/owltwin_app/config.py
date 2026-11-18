@@ -149,6 +149,7 @@ class Provider:
     registers_as: str = ""
     # api_key: the credential the gateway must send.
     api_key: dict[str, str] = field(default_factory=dict)
+    logo: str = ""                    # https URL of the vendor's logo, for the consent page
 
     @property
     def all_hosts(self) -> list[str]:
@@ -329,6 +330,15 @@ def load_provider(path: Path) -> Provider:
     if not isinstance(tools, list) or not all(isinstance(t, dict) and t.get("name") for t in tools):
         problems.append("mcp.tools: list of tools, each with a name")
         tools = []
+    # logo: the catalog entry's LogoUrl (entries.go), shown on the consent page. Optional.
+    logo = str(raw.get("logo") or "").strip()
+    if logo:
+        lhost = urllib.parse.urlsplit(logo).hostname or ""
+        if not logo.startswith("https://") or not lhost:
+            problems.append("logo: an https:// URL")
+        # Only an image: Google and Microsoft hosts are fine, company hosts are not.
+        elif reason := blocked_reason(lhost, frozenset([lhost])):
+            problems.append(f"logo: {reason}")
     if problems:
         raise LintError(path, problems)
     consent = raw.get("consent") or {}
@@ -349,6 +359,7 @@ def load_provider(path: Path) -> Provider:
         tools=tools,
         mcp_server_name=str(mcp.get("server_name") or f"{pid}-twin-mcp"),
         consent_title=str(consent.get("title") or f"Allow Samsara to access {pid}?"),
+        logo=logo,
     )
     p.idp_hosts = sorted(idp & set(browser))
     p.mode = mode

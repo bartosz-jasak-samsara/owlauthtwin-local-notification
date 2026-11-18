@@ -4,6 +4,8 @@
 schema: 1
 id: google-calendar
 name: Google Calendar connector
+# The vendor's own icon, shown on the consent page.
+logo: https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png
 catalog_entry: google-calendar
 oauth_client: google-calendar
 

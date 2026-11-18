@@ -4,6 +4,8 @@
 schema: 1
 id: atlassian
 name: Atlassian connector (API token)
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://wac-cdn.atlassian.com/assets/img/favicons/atlassian/favicon.png
 catalog_entry: atlassian
 
 hosts:

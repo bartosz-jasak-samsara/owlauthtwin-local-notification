@@ -4,6 +4,8 @@
 schema: 1
 id: microsoft-entra
 name: Microsoft Entra connector
+# The catalog entry's LogoUrl (entries.go); the consent page shows it.
+logo: https://learn.microsoft.com/favicon.ico
 catalog_entry: microsoft-entra
 oauth_client: microsoft-365
 
