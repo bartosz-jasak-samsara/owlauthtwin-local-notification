@@ -56,17 +56,37 @@ IDP_MINUTES = 10  # Chrome's Google/Microsoft sign-in goes back to the real host
 START_GRACE = 10
 # direnv exec loads the repo's .envrc (PATH with taskrunner-localdev) without relying on the shell
 # hook; `env` after it makes these values win over anything .envrc sets.
-BACKEND_CMD = (
-    "cd ~/co/backend && direnv exec ~/co/backend env "
+BACKEND_SERVICES = (
+    "ucvserver agentconnectorservice agentservice agentchatworker agentstudiogqlservice"
+)
+# The profile backend's bin/setup.sh writes to .envrc.local for DevEco devboxes. Without that line
+# .envrc's AWS_DEFAULT_PROFILE=readonly names no profile, the SDK finds no credentials and
+# taskrunner stops with "unable to get caller identity", which reads like an expired AWS session.
+FALLBACK_AWS_PROFILE = "devecosystemreadonly"
+_BACKEND_ENV = (
     "SSL_CERT_FILE=$HOME/.owltwin/combined-ca.pem "
-    + (f"AWS_PROFILE={shlex.quote(AWS_PROFILE)} AWS_DEFAULT_PROFILE={shlex.quote(AWS_PROFILE)} "
-       if AWS_PROFILE else "")
     + (f"AWS_REGION={shlex.quote(AWS_REGION)} AWS_DEFAULT_REGION={shlex.quote(AWS_REGION)} "
        if AWS_REGION else "")
     + "FC_USE_DEV_OVERRIDES=1 USE_VITE_DEVPROXY=false "
-    "taskrunner-localdev ucvserver agentconnectorservice agentservice agentchatworker "
-    "agentstudiogqlservice"
 )
+if AWS_PROFILE:
+    BACKEND_CMD = (
+        "cd ~/co/backend && direnv exec ~/co/backend env " + _BACKEND_ENV
+        + f"AWS_PROFILE={shlex.quote(AWS_PROFILE)} AWS_DEFAULT_PROFILE={shlex.quote(AWS_PROFILE)} "
+        + f"taskrunner-localdev {BACKEND_SERVICES}"
+    )
+else:
+    # The repo's profile when ~/co/backend/.aws/config has it, else the DevEco one.
+    _PICK = (
+        'p=${AWS_PROFILE:-$AWS_DEFAULT_PROFILE}; '
+        'if ! aws configure list-profiles 2>/dev/null | grep -qxF "$p"; then '
+        'echo "AWS profile ${p:-(none)} is not in $AWS_CONFIG_FILE: '
+        f'using {FALLBACK_AWS_PROFILE}"; '
+        f'p={FALLBACK_AWS_PROFILE}; fi; '
+        'exec env AWS_PROFILE="$p" AWS_DEFAULT_PROFILE="$p" ' + _BACKEND_ENV
+        + f"taskrunner-localdev {BACKEND_SERVICES}"
+    )
+    BACKEND_CMD = "cd ~/co/backend && direnv exec ~/co/backend bash -c " + shlex.quote(_PICK)
 # claude_core runs code in a sandbox; the e2b dev key is mocked locally, so use local Docker
 # instead.
 SANDBOX_CFG_CMD = (
@@ -193,6 +213,8 @@ class Session:
     direnv_ok: bool = False  # the repos' .envrc files are approved
     sso_url: str = ""  # AWS sign-in page (code filled in) while it waits for you
     sso_done_at: float = 0.0  # when the last AWS sign-in finished
+    # When a check last found the devbox's AWS session working although a window said otherwise.
+    sso_ok_at: float = 0.0
     # Since when Chrome's Google/Microsoft sign-in goes to the Twin (0 = off), and for which
     # connector's sign-in hosts.
     idp_on_at: float = 0.0
@@ -1042,7 +1064,16 @@ class App:
             sso = False
             force = True
             s.actions.pop(key, None)
-        if sso:
+        if sso and s.sso_ok_at and s.actions.get(key, 0) > s.sso_ok_at:
+            # Started again after a check found the AWS session working, and it stopped on the
+            # same kind of error: a sign-in will not fix it, so say what it printed.
+            why = link.errs.get(key) or tail or "no output"
+            detail = (
+                f"{what} gets no AWS credentials although the devbox's AWS sign-in works: "
+                f"{why[:200]}. Logs: tmux attach -t owltwin-run. Check again starts it again."
+            )
+            self._set(s, key, "fail", detail)
+        elif sso:
             self._aws_signin(s, key)
         elif key in s.errors:
             self._set(s, key, "fail", s.errors[key])
@@ -1105,6 +1136,11 @@ class App:
             if not os.environ.get("OWLTWIN_NO_BROWSER"):
                 webbrowser.open(url)
 
+        if devbox_link.sso_signed_in(s.devbox.alias):
+            # The session works (the window's error only looks like an expired session, or you
+            # signed in elsewhere): no sign-in, and the windows that stopped on it start again.
+            s.sso_done_at = s.sso_ok_at = time.time()
+            return
         err = devbox_link.sso_login(s.devbox.alias, on_url)
         s.sso_url = ""
         if err:

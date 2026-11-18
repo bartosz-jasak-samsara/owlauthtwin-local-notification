@@ -251,6 +251,84 @@ class SessionLogicTest(unittest.TestCase):
         once.assert_not_called()   # no provision, no tmux starts, no flags
         self.assertEqual(s.step("route").state, "ok")
 
+    def test_working_session_restarts_instead_of_signing_in(self):
+        """A pane stopped on text that looks like an expired session, while the session works:
+        no sign-in page, the pane starts again."""
+        import time
+
+        from owltwin_app import app as app_mod
+        from owltwin_app.devbox_link import LinkStatus
+
+        a = bare_app(Path(tempfile.mkdtemp()))
+        s = make_session("full")
+        s.steps = a._steps(s)
+        a.session = s
+        link = LinkStatus(reachable=True, windows={"backend": "zsh"}, sso={"backend"})
+        s.actions = {"backend": time.time() - 120}   # this run started it, then it stopped
+        # The check finds the session working: no sign-in page, the sign-in counts as done.
+        with mock.patch.object(app_mod.devbox_link, "sso_signed_in", return_value=True), \
+                mock.patch.object(app_mod.devbox_link, "sso_login") as login:
+            a._sso_login(s)
+        login.assert_not_called()
+        self.assertGreater(s.sso_done_at, 0)
+        with mock.patch.object(a, "_aws_signin") as signin, \
+                mock.patch.object(a, "_direnv_ready", return_value=True), \
+                mock.patch.object(a, "_once", return_value=True) as once:
+            a._run_window(s, link, "backend", "~/co/backend", "cmd", "taskrunner", "")
+        signin.assert_not_called()
+        self.assertEqual(once.call_args.args[1], "backend")   # started again
+        # Without a sign-in since, the same pane still asks for one.
+        s.sso_done_at, s.sso_ok_at, s.actions = 0.0, 0.0, {"backend": time.time()}
+        with mock.patch.object(a, "_aws_signin") as signin:
+            a._run_window(s, link, "backend", "~/co/backend", "cmd", "taskrunner", "")
+        signin.assert_called_once()
+
+    def test_no_sign_in_loop_when_the_session_works(self):
+        """Restarted after the check found AWS working and stopped on it again: a fail with what
+        it printed, not one more sign-in."""
+        import time
+
+        from owltwin_app.devbox_link import LinkStatus
+
+        a = bare_app(Path(tempfile.mkdtemp()))
+        s = make_session("full")
+        s.steps = a._steps(s)
+        a.session = s
+        s.sso_ok_at = s.sso_done_at = time.time() - 60
+        s.actions = {"backend": time.time()}
+        link = LinkStatus(reachable=True, windows={"backend": "zsh"}, sso={"backend"},
+                          errs={"backend": "unable to get caller identity: NoCredentialProviders"})
+        with mock.patch.object(a, "_aws_signin") as signin:
+            a._run_window(s, link, "backend", "~/co/backend", "cmd", "taskrunner", "")
+        signin.assert_not_called()
+        st = s.step("backend")
+        self.assertEqual(st.state, "fail")
+        self.assertIn("NoCredentialProviders", st.detail)
+
+    def test_backend_picks_a_profile_that_exists(self):
+        import subprocess
+
+        from owltwin_app import app as app_mod
+
+        if app_mod.AWS_PROFILE:
+            self.skipTest("OWLTWIN_AWS_PROFILE is set")
+        pick = app_mod.BACKEND_CMD.split("bash -c ", 1)[1]
+        bin_dir = Path(tempfile.mkdtemp())
+        profiles = "local devecosystemreadonly other"
+        scripts = {
+            "aws": f"#!/bin/sh\nprintf '%s\\n' {profiles}\n",
+            "taskrunner-localdev": '#!/bin/sh\necho "ran $AWS_PROFILE"\n',
+        }
+        for name, text in scripts.items():
+            (bin_dir / name).write_text(text)
+            (bin_dir / name).chmod(0o755)
+        for default, want in (("readonly", "devecosystemreadonly"), ("other", "other")):
+            env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": "/tmp",
+                   "AWS_DEFAULT_PROFILE": default, "AWS_CONFIG_FILE": "c"}
+            out = subprocess.run(f"bash -c {pick}", shell=True, env=env, capture_output=True,
+                                 text=True, timeout=10).stdout
+            self.assertIn(f"ran {want}", out)
+
     def test_flags_off_is_skipped(self):
         from owltwin_app.devbox_link import LinkStatus
 
@@ -350,6 +428,25 @@ class SsoLoginScriptTest(unittest.TestCase):
         out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True,
                              timeout=10).stdout
         self.assertIn("picked --sso-session new ", out)
+
+    def test_check_uses_a_profile_of_that_session(self):
+        import subprocess
+
+        from owltwin_app import devbox_link
+
+        home = Path(tempfile.mkdtemp())
+        (home / ".aws").mkdir()
+        (home / ".aws/config").write_text(
+            "[sso-session old]\n[sso-session new]\n"
+            "[profile x]\nregion = r\n[profile sso-a]\nsso_session = new\n"
+            "[profile sso-b]\nsso_session = new\n"
+        )
+        script = "P=\n" + devbox_link.SSO_CHECK.replace(
+            "exec timeout 30 aws sts get-caller-identity", "echo checked")
+        env = {"HOME": str(home), "PATH": "/usr/bin:/bin"}
+        out = subprocess.run(["bash", "-c", script.replace(">/dev/null 2>&1", "")], env=env,
+                             capture_output=True, text=True, timeout=10).stdout
+        self.assertIn("checked --profile sso-a", out)
 
 
 class OverridesScriptTest(unittest.TestCase):

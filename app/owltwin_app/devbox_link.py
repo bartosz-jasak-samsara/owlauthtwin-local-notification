@@ -58,7 +58,7 @@ AGENTS_ENVRC = "$HOME/co/aiml-agents/.envrc.local"
 # one sso-session, so one sign-in renews them all: that of OWLTWIN_AWS_PROFILE (or of its
 # sso-<profile> entry) when it is set, else the one most profiles in the devbox's ~/.aws/config
 # use, else its first.
-SSO_LOGIN = r"""
+SSO_SESSION = r"""
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE
 s=""
 if [ -n "$P" ]; then
@@ -70,8 +70,30 @@ fi
   sort | uniq -c | sort -rn | awk 'NR == 1 {print $2}')
 [ -n "$s" ] || s=$(sed -n 's/^\[sso-session \(.*\)\]$/\1/p' ~/.aws/config 2>/dev/null | head -n 1)
 [ -n "$s" ] || { echo "no sso-session in the devbox's ~/.aws/config"; exit 1; }
-exec timeout 600 aws sso login --sso-session "$s" --use-device-code --no-browser
 """
+SSO_LOGIN = SSO_SESSION + (
+    'exec timeout 600 aws sso login --sso-session "$s" --use-device-code --no-browser\n'
+)
+# Whether that sso-session still works: a call with one of its profiles, which renews an expired
+# access token from the refresh token the way the backend's credential_process does. Exit 0: it
+# works; 3: no profile uses it, so this cannot tell.
+SSO_CHECK = SSO_SESSION + r"""
+p=$(awk -v s="$s" '/^\[profile /{n=$2; sub(/\]$/, "", n)} $1 == "sso_session" && $3 == s {print n; exit}' \
+  ~/.aws/config 2>/dev/null)
+[ -n "$p" ] || exit 3
+exec timeout 30 aws sts get-caller-identity --profile "$p" >/dev/null 2>&1
+"""  # noqa: E501
+
+
+def sso_signed_in(alias: str) -> bool:
+    """True when the devbox's AWS sso-session still works, so no sign-in is needed. A window's
+    error can match the expired-session text without the session having expired."""
+    profile = os.environ.get("OWLTWIN_AWS_PROFILE", "").strip()
+    try:
+        r = rsh(alias, f"P={shlex.quote(profile)}\n" + SSO_CHECK, timeout=45)
+    except subprocess.TimeoutExpired:
+        return False
+    return r.returncode == 0
 
 
 def sso_login(alias: str, on_url) -> str:
