@@ -81,7 +81,7 @@ def main(argv: list[str]) -> int:
             "stopping owltwin-run on the devbox…",
             flush=True,
         )
-    app.stop_session(keep=True)
+    app.stop_session()
     srv.shutdown()
     return 0
 

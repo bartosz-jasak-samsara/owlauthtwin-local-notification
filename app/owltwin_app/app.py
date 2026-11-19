@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import shlex
 import socket
 import subprocess
@@ -221,6 +222,8 @@ class Session:
     idp_for: str = ""
     flags_applied_at: float = 0.0  # when the flag overrides were last written
     flags_applied_org: int = 0
+    # /etc/machine-id of the devbox: a new devbox can get the alias of a deleted one.
+    machine_id: str = ""
 
     @property
     def provider(self) -> Provider:
@@ -286,18 +289,52 @@ class App:
         threading.Thread(target=self._ticker, name="ticker", daemon=True).start()
 
     # Persistence -----------------------------------------------------------
+    # One saved session per devbox, kept until you forget it: Stop and closing the app keep it,
+    # so the Twin still knows the tokens and DCR clients the devbox's UCV stored.
     @property
-    def session_file(self) -> Path:
-        return self.state_dir / "session.json"
+    def sessions_dir(self) -> Path:
+        return self.state_dir / "sessions"
+
+    def session_path(self, alias: str) -> Path | None:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", alias or ""):
+            return None
+        return self.sessions_dir / f"{alias}.json"
+
+    def _migrate_session_file(self) -> None:
+        """session.json (one session for the whole Mac) becomes sessions/<alias>.json."""
+        old = self.state_dir / "session.json"
+        if not old.exists():
+            return
+        with contextlib.suppress(OSError, ValueError):
+            data = json.loads(old.read_text())
+            alias = str(data.get("devbox", "")) if isinstance(data, dict) else ""
+            path = self.session_path(alias)
+            if path and not path.exists():
+                self._write_json(path, data)
+        old.unlink(missing_ok=True)
+
+    @staticmethod
+    def _write_json(path: Path, data: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data))
+        tmp.chmod(0o600)
+        tmp.replace(path)
 
     def save_session(self) -> None:
         s = self.session
         if not s:
             return
+        path = self.session_path(s.devbox.alias)
+        if not path:
+            return
         data = {
-            "v": 2,
+            "v": 3,
             "saved_at": time.time(),
             "devbox": s.devbox.alias,
+            "machine_id": s.machine_id,
+            "devbox_name": s.devbox.name,
+            "devbox_region": s.devbox.region,
             "provider_file": s.provider.path.name,  # the connector shown
             "provider_id": s.provider.id,
             "mode": s.mode,
@@ -305,23 +342,15 @@ class App:
             "route_applied": s.route_applied,
             "twins": {pid: st.snapshot() for pid, st in s.twins.states.items()},
         }
-        tmp = self.session_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data))
-        tmp.chmod(0o600)
-        tmp.replace(self.session_file)
+        self._write_json(path, data)
 
-    def last_session(self) -> dict | None:
-        """The session the app was closed with (within 12 h).
-
-        Setup offers Continue last session for it; nothing starts until you click.
-        """
+    @staticmethod
+    def _read_session(path: Path) -> dict | None:
         try:
-            data = json.loads(self.session_file.read_text())
+            data = json.loads(path.read_text())
         except (OSError, ValueError):
             return None
         if not isinstance(data, dict) or not data.get("devbox") or not data.get("provider_file"):
-            return None
-        if time.time() - float(data.get("saved_at", 0)) > 12 * 3600:
             return None
         if "twins" not in data:  # v1: one connector
             data["twins"] = {data.get("provider_id", ""): data.get("twin") or {}}
@@ -329,16 +358,75 @@ class App:
             data["mode"] = "full"
         return data
 
-    def resume_session(self) -> str:
-        """Continue last session: same devbox, mode, flags and shown connector; every connector's
-        Twin secrets and tokens kept."""
-        data = self.last_session()
+    def saved_sessions(self) -> dict[str, dict]:
+        """Every saved session, by devbox alias."""
+        self._migrate_session_file()
+        out = {}
+        for path in sorted(self.sessions_dir.glob("*.json")):
+            data = self._read_session(path)
+            if data and path.stem == data["devbox"]:
+                out[data["devbox"]] = data
+        return out
+
+    def saved_session(self, alias: str) -> dict | None:
+        self._migrate_session_file()
+        path = self.session_path(alias)
+        return self._read_session(path) if path else None
+
+    def last_session(self) -> dict | None:
+        """The session saved most recently, on any devbox. Setup picks its devbox first."""
+        saved = self.saved_sessions().values()
+        return max(saved, key=lambda d: float(d.get("saved_at", 0)), default=None)
+
+    def session_mismatch(self, data: dict, machine_id: str = "") -> str:
+        """Why the devbox now behind this alias is not the one the session was saved on, or ""."""
+        alias = data["devbox"]
+        dbx = self.devboxes.get(alias)
+        was, now = data.get("devbox_name") or "", dbx.name if dbx else ""
+        other_name = bool(was and now and was != now)
+        saved_id = data.get("machine_id") or ""
+        other_id = bool(saved_id and machine_id and saved_id != machine_id)
+        if not (other_name or other_id):
+            return ""
+        names = f" ({was} → {now})" if other_name else ""
+        return (
+            f"{alias} is a different devbox now{names}: the saved session belongs to one that "
+            "was deleted, and its tokens are not in this devbox's UCV. Forget it, then start a "
+            "new session."
+        )
+
+    def resume_session(self, alias: str = "") -> str:
+        """Continue a devbox's saved session: same mode, flags and shown connector; every
+        connector's Twin secrets and tokens kept."""
+        data = self.saved_session(alias) if alias else self.last_session()
         if not data:
-            return "No last session to continue (none saved, or older than 12 h)"
+            return f"No saved session for {alias or 'any devbox'}"
         flags = FlagConfig.from_json(data.get("flags"), data["mode"])
         return self.start_session(
             data["devbox"], data["provider_file"], snapshot=data, mode=data["mode"], flags=flags,
         )
+
+    def forget_session(self, alias: str) -> str:
+        """Deletes a devbox's saved session and, in the background, the flag overrides it set.
+        Nothing else on the devbox changes (its Dynamo keeps the connections)."""
+        s = self.session
+        if s and s.devbox.alias == alias:
+            return f"The session on {alias} is running: Stop it first"
+        path = self.session_path(alias)
+        data = self.saved_session(alias)
+        if not path or not data:
+            return f"No saved session for {alias}"
+        path.unlink(missing_ok=True)
+        flags = FlagConfig.from_json(data.get("flags"), data["mode"])
+        dbx = self.devboxes.get(alias)
+        if flags.enabled and dbx and dbx.ssh_ok and not no_devbox():
+            names = list(dict.fromkeys([*flags.names, *devbox_link.DEFAULT_FLAGS]))
+            threading.Thread(
+                target=devbox_link.remove_overrides, args=(alias, flags.org, names),
+                name="forget-flags", daemon=True,
+            ).start()
+        self.bump()
+        return ""
 
     # Helpers ---------------------------------------------------------------
     def bump(self) -> None:
@@ -472,9 +560,12 @@ class App:
     # Session lifecycle -----------------------------------------------------
     def start_session(
         self, alias: str, provider_file: str, snapshot: dict | None = None, mode: str = "full",
-        flags: FlagConfig | None = None,
+        flags: FlagConfig | None = None, forget: bool = False,
     ) -> str:
-        """Starts the Twin for every valid connector; provider_file is the one shown first."""
+        """Starts the Twin for every valid connector; provider_file is the one shown first.
+
+        snapshot continues a saved session. A new one on a devbox that has a saved session needs
+        forget=True: it replaces that session (Start new session… asks first)."""
         if self.stopping:
             where = self.stopping["alias"]
             return f"Still stopping the last session on {where}; start again once that is done"
@@ -483,6 +574,14 @@ class App:
             return f"{alias} is not running"
         if mode not in MODES:
             return "Unknown mode"
+        saved = self.saved_session(alias)
+        if saved and not snapshot and not forget:
+            return (
+                f"{alias} has a saved session: Continue it, or Start new session to replace it"
+            )
+        machine_id = "" if no_devbox() else devbox_link.machine_id(alias)
+        if snapshot and (why := self.session_mismatch(snapshot, machine_id)):
+            return why
         path = self.providers_dir / provider_file
         if path.parent != self.providers_dir or not path.exists():
             return "Unknown provider file"
@@ -523,6 +622,7 @@ class App:
             browser_port=browser_port, server_port=server_port, servers=servers,
         )
         twins.active = lambda: s.active
+        s.machine_id = machine_id or (snapshot or {}).get("machine_id", "")
         s.steps = self._steps(s)
         with self.lock:
             self.session = s
@@ -1256,16 +1356,14 @@ class App:
             self.stop_error = f"Stop could not clean up {where}: {err}" if err else ""
         self.bump()
 
-    def stop_session(self, keep: bool = False) -> str:
-        """keep=True (app shutdown) leaves session.json, so Setup offers Continue last session.
+    def stop_session(self) -> str:
+        """Stops everything this session runs, on the devbox and on this Mac. Its saved session
+        stays (Forget removes it), so Continue gets the Twin's tokens back.
         Returns what could not be undone on the devbox, or ""."""
         t = self._stopper
         if t and t is not threading.current_thread() and t.is_alive():
             t.join()  # closing the app mid-Stop: let that Stop finish first
-        if keep:
-            self.save_session()
-        else:
-            self.session_file.unlink(missing_ok=True)
+        self.save_session()
         with self.lock:
             s = self.session
             self.session = None

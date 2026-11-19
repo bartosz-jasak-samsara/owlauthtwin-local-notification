@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import threading
@@ -83,6 +84,17 @@ p=$(awk -v s="$s" '/^\[profile /{n=$2; sub(/\]$/, "", n)} $1 == "sso_session" &&
 [ -n "$p" ] || exit 3
 exec timeout 30 aws sts get-caller-identity --profile "$p" >/dev/null 2>&1
 """  # noqa: E501
+
+
+def machine_id(alias: str) -> str:
+    """The devbox's /etc/machine-id, or "" when it does not answer. A devbox created later under
+    the same alias (devbox-4 after devbox-4 was deleted) has another one."""
+    try:
+        r = rsh(alias, "cat /etc/machine-id\n", timeout=20)
+    except subprocess.TimeoutExpired:
+        return ""
+    mid = r.stdout.strip()
+    return mid if r.returncode == 0 and re.fullmatch(r"[0-9a-f]{32}", mid) else ""
 
 
 def sso_signed_in(alias: str) -> bool:

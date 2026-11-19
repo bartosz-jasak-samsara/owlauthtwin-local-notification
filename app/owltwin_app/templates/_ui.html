@@ -7,9 +7,9 @@
 {%- endmacro %}
 
 {# A POST form with one button. Buttons from view-models are {"action", "label", "cls"}. #}
-{% macro post_btn(action, label, cls="btn") -%}
+{% macro post_btn(action, label, cls="btn", title="") -%}
   <form method="post" action="{{ action }}">
-    <button class="{{ cls }}" type="submit">{{ label }}</button>
+    <button class="{{ cls }}" type="submit" {%- if title %} title="{{ title }}"{% endif %}>{{ label }}</button>
   </form>
 {%- endmacro %}
 

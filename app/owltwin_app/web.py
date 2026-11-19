@@ -141,7 +141,7 @@ def page(title: str, template: str, ctx: dict[str, Any]) -> str:
 
 
 # Setup: pick ----------------------------------------------------------------
-def devbox_vm(d: Any, pick: str | None) -> dict[str, Any]:
+def devbox_vm(d: Any, pick: str | None, saved: dict | None = None) -> dict[str, Any]:
     if d.ssh_ok:
         studio = (d.dashboard or f"https://localhost:{d.frontend_port}/").rstrip("/")
         sub = f"Agent Studio at {studio} · {d.region}"
@@ -153,6 +153,35 @@ def devbox_vm(d: Any, pick: str | None) -> dict[str, Any]:
         "ok": d.ssh_ok,
         "checked": d.alias == pick,
         "sub": sub,
+        "saved": (saved or {}).get("line", ""),
+        "mismatch": bool((saved or {}).get("mismatch")),
+    }
+
+
+def saved_vm(app: App, data: dict, valid: dict) -> dict[str, Any]:
+    """A devbox's saved session, as Setup shows it."""
+    mode = data["mode"] if data.get("mode") in MODES else "full"
+    flags = FlagConfig.from_json(data.get("flags"), mode)
+    pfile = data["provider_file"]
+    name = short_name(valid[pfile].name) if pfile in valid else pfile
+    by_id = {p.id: p for p in valid.values()}
+    connected = [
+        short_name(by_id[pid].name) for pid, snap in (data.get("twins") or {}).items()
+        if pid in by_id and isinstance(snap, dict)
+        and (snap.get("refresh_tokens") or snap.get("api_ok_at"))
+    ]
+    saved_at = time.localtime(float(data.get("saved_at", 0)))
+    when = time.strftime("%-d %b, %H:%M", saved_at)
+    parts = [MODE_LABEL[mode]]
+    parts.append(f"{', '.join(connected)} connected" if connected else "nothing connected")
+    mismatch = app.session_mismatch(data)
+    return {
+        "alias": data["devbox"],
+        "name": data.get("devbox_name") or "",
+        "line": f"Saved session · {' · '.join(parts)} · {when}",
+        "summary": " · ".join([data["devbox"], MODE_LABEL[mode], name, flags_summary(flags)]),
+        "when": when,
+        "mismatch": mismatch,
     }
 
 
@@ -184,37 +213,26 @@ def pick_vm(app: App, error: str = "") -> dict[str, Any]:
         items = list(dl.items)
         loading = dl.loading
         list_error = dl.error
+    entries = app.provider_entries()
+    valid = {e.file.name: e.provider for e in entries if e.provider}
+    saved = {alias: saved_vm(app, data, valid) for alias, data in app.saved_sessions().items()}
     last = app.last_session()
     up = {d.alias for d in items if d.ssh_ok}
     first_up = next((d.alias for d in items if d.ssh_ok), None)
     pick = last["devbox"] if last and last["devbox"] in up else first_up
-    devboxes = [devbox_vm(d, pick) for d in items]
+    devboxes = [devbox_vm(d, pick, saved.get(d.alias)) for d in items]
+    listed = {d.alias for d in items}
 
-    entries = app.provider_entries()
-    valid = {e.file.name: e.provider for e in entries if e.provider}
     last_file = last["provider_file"] if last and last["provider_file"] in valid else ""
     first_valid = next(iter(valid), "")
     checked_file = last_file or first_valid
     providers = [provider_vm(e, e.file.name == checked_file) for e in entries]
 
-    cont = None
     mode = "full"
     flags = FlagConfig()
     if last:
-        pfile = last["provider_file"]
-        saved_at = time.localtime(float(last.get("saved_at", 0)))
         mode = last.get("mode") if last.get("mode") in MODES else "full"
         flags = FlagConfig.from_json(last.get("flags"), mode)
-        name = valid[pfile].name if pfile in valid else pfile
-        cont = {
-            "alias": last["devbox"],
-            "provider": name,
-            "summary": " · ".join(
-                [last["devbox"], MODE_LABEL[mode], short_name(name), flags_summary(flags)]
-            ),
-            "up": last["devbox"] in up,
-            "saved": time.strftime("%H:%M", saved_at),
-        }
     first_name = short_name(valid[checked_file].name) if checked_file in valid else "?"
     start_summary = " · ".join(
         [pick or "no devbox", MODE_LABEL[mode], f"{first_name} first", flags_summary(flags)]
@@ -238,7 +256,10 @@ def pick_vm(app: App, error: str = "") -> dict[str, Any]:
         "flags_off": FLAGS_OFF,
         "start_summary": start_summary,
         "providers_dir": str(app.providers_dir).replace(str(Path.home()), "~"),
-        "cont": cont,
+        # Saved sessions by devbox; the actions under the form follow the devbox you pick.
+        "saved": saved,
+        "pick": pick or "",
+        "orphans": [v for a, v in saved.items() if a not in listed],
         "can_start": bool(first_up) and not stopping,
     }
 
@@ -1050,7 +1071,13 @@ def create_app(app: App) -> Flask:
 
     @panel.post("/resume")
     def resume() -> Response:
-        err = app.resume_session()
+        err = app.resume_session(request.form.get("devbox", ""))
+        return show(view(app, {}, err)) if err else see_other("/")
+
+    @panel.post("/forget")
+    def forget() -> Response:
+        alias = request.form.get("forget_devbox") or request.form.get("devbox", "")
+        err = app.forget_session(alias)
         return show(view(app, {}, err)) if err else see_other("/")
 
     def form_flags() -> FlagConfig | str:
@@ -1068,7 +1095,7 @@ def create_app(app: App) -> Flask:
         else:
             err = app.start_session(
                 request.form.get("devbox", ""), request.form.get("provider", ""),
-                mode=mode, flags=flags,
+                mode=mode, flags=flags, forget=request.form.get("forget") == "1",
             )
         return show(view(app, {}, err)) if err else see_other("/")
 

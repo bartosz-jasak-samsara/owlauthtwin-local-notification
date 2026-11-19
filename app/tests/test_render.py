@@ -93,10 +93,21 @@ class FakeApp:
         self.stopping = None
         self.stop_error = ""
         self._last = last
+        self.mismatch: dict[str, str] = {}
         self._ents = ENTRIES if ents is None else ents
 
     def last_session(self):
         return self._last
+
+    def saved_sessions(self):
+        return {self._last["devbox"]: self._last} if self._last else {}
+
+    def session_mismatch(self, data, machine_id=""):
+        return self.mismatch.get(data["devbox"], "")
+
+    def forget_session(self, alias):
+        self.calls.append(f"forget {alias}")
+        return ""
 
     def provider_entries(self):
         return self._ents
@@ -104,9 +115,10 @@ class FakeApp:
     def _browser_hosts(self):
         return ["auth.monday.com"]
 
-    def start_session(self, devbox_alias, provider_file, mode="full", flags=None):
+    def start_session(self, devbox_alias, provider_file, mode="full", flags=None, forget=False):
         f = f" flags={flags.org}:{','.join(flags.names)}" if flags and flags.enabled else ""
-        self.calls.append(f"start {devbox_alias} {provider_file} {mode}{f}")
+        g = " forget" if forget else ""
+        self.calls.append(f"start {devbox_alias} {provider_file} {mode}{f}{g}")
         return self.start_error
 
     def set_active(self, pid):
@@ -119,8 +131,8 @@ class FakeApp:
     def remove_flags(self, org):
         self.calls.append(f"remove flags {org}")
 
-    def resume_session(self):
-        self.calls.append("resume")
+    def resume_session(self, alias=""):
+        self.calls.append(f"resume {alias}".strip())
         return ""
 
     def request_stop(self):
@@ -259,9 +271,28 @@ class PickTest(unittest.TestCase):
             "provider_file": "monday.yaml",
             "saved_at": time.time() - 3600,
         }
-        body = web.render_pick(FakeApp(loading=True, error=EVIL, last=last), EVIL)
+        body = web.render_pick(FakeApp([devbox()], loading=True, error=EVIL, last=last), EVIL)
         assert_escaped(self, body)
-        self.assertTrue(Tags(body).find("button", formaction="/resume"))
+        t = Tags(body)
+        self.assertTrue(t.find("button", formaction="/resume"))
+        self.assertTrue(t.find("button", formaction="/forget"))
+        self.assertIn("Saved session", t.all_text)
+        news = [b for b in t.find("button", type="submit") if b.get("name") == "forget"]
+        self.assertTrue(news and "data-confirm" in news[0])
+
+    def test_saved_session_on_another_devbox(self):
+        last = {"devbox": "devbox-1", "provider_file": "monday.yaml", "saved_at": time.time()}
+        app = FakeApp([devbox()], last=last)
+        app.mismatch["devbox-1"] = "devbox-1 is a different devbox now (box1 → box2)"
+        t = Tags(web.render_pick(app))
+        self.assertIn("different devbox now", t.all_text)
+        self.assertFalse(t.find("button", formaction="/resume"))
+        self.assertTrue(t.find("button", formaction="/forget"))
+        # Not running at all: listed apart, with only Forget.
+        t = Tags(web.render_pick(FakeApp([devbox("devbox-2")], last=last)))
+        self.assertIn("devboxes that are not", t.all_text)
+        self.assertEqual([b.get("value") for b in t.find("button", formaction="/forget")],
+                         ["devbox-1"])
 
     def test_first_devbox_list_shows_a_loader(self):
         t = Tags(web.render_pick(FakeApp(loading=True)))
@@ -703,6 +734,11 @@ class SetupFormTest(unittest.TestCase):
         self.assertEqual(r.status_code, 303)
         started = "start devbox-1 gmail.yaml twin_only flags=77:agent-studio-enabled,my-flag"
         self.assertEqual(app.calls, [started])
+        c.post("/session", data={**form, "forget": "1"}, headers=LOCAL)
+        self.assertTrue(app.calls[-1].endswith(" forget"))
+        c.post("/resume", data={"devbox": "devbox-1"}, headers=LOCAL)
+        c.post("/forget", data={"devbox": "devbox-1", "forget_devbox": "devbox-3"}, headers=LOCAL)
+        self.assertEqual(app.calls[-2:], ["resume devbox-1", "forget devbox-3"])
         r = c.post("/session", data={**form, "org": "x;rm"}, headers=LOCAL)
         self.assertEqual(r.status_code, 200)
         self.assertIn("Org ID must be a number", r.get_data(as_text=True))

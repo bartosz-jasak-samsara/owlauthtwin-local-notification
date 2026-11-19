@@ -3,6 +3,7 @@ python -m unittest"""
 import base64
 import hashlib
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -173,6 +174,7 @@ def bare_app(state_dir: Path):
     a.stopping = None
     a.stop_error = ""
     a._stopper = None
+    a.devboxes = types.SimpleNamespace(get=lambda alias: None)
     return a
 
 
@@ -209,6 +211,9 @@ class SessionLogicTest(unittest.TestCase):
         data = a.last_session()
         self.assertEqual(data["mode"], "full")
         self.assertEqual(data["twins"], {"gmail": {"client_secret": "s1"}})
+        # The single old file moved to the per-devbox folder.
+        self.assertFalse((d / "session.json").exists())
+        self.assertEqual(set(a.saved_sessions()), {"devbox-1"})
 
     def test_session_json_v2_round_trip(self):
         d = Path(tempfile.mkdtemp())
@@ -221,10 +226,59 @@ class SessionLogicTest(unittest.TestCase):
         a.save_session()
         data = a.last_session()
         self.assertEqual((data["v"], data["mode"], data["provider_id"]),
-                         (2, "twin_only", "google-calendar"))
+                         (3, "twin_only", "google-calendar"))
+        self.assertEqual((data["devbox"], data["devbox_name"]), ("devbox-1", "box1"))
+        self.assertEqual(a.saved_session("devbox-1")["provider_id"], "google-calendar")
         self.assertEqual(data["flags"]["org"], 77)
         self.assertEqual(data["twins"]["monday"]["client_secret"], "kept")
         self.assertEqual(set(data["twins"]), {"gmail", "google-calendar", "monday"})
+
+    def test_sessions_per_devbox_do_not_expire(self):
+        import json
+
+        d = Path(tempfile.mkdtemp())
+        a = bare_app(d)
+        a.session = make_session("full")
+        a.save_session()
+        path = a.session_path("devbox-1")
+        data = json.loads(path.read_text())
+        data["saved_at"] = 0   # long ago: still offered, the user forgets it themselves
+        path.write_text(json.dumps(data))
+        other = dict(data, devbox="devbox-2", saved_at=10)
+        a.session_path("devbox-2").write_text(json.dumps(other))
+        self.assertEqual(set(a.saved_sessions()), {"devbox-1", "devbox-2"})
+        self.assertEqual(a.last_session()["devbox"], "devbox-2")
+        self.assertIsNone(a.session_path("../x"))   # an alias never leaves the folder
+        self.assertEqual(oct(path.stat().st_mode & 0o777), "0o600")
+
+    def test_same_alias_other_devbox_is_caught(self):
+        from owltwin_app.devbox import Devbox
+
+        a = bare_app(Path(tempfile.mkdtemp()))
+        data = {"devbox": "devbox-4", "devbox_name": "box4", "machine_id": "a" * 32}
+        self.assertEqual(a.session_mismatch(data), "")      # devbox not listed: nothing to say
+        now = Devbox(index=4, name="box9", alias="devbox-4", region="r", ssh_ok=True,
+                     dashboard="")
+        a.devboxes = types.SimpleNamespace(get=lambda alias: now)
+        self.assertIn("box4 → box9", a.session_mismatch(data))
+        now.name = "box4"
+        self.assertEqual(a.session_mismatch(data, "a" * 32), "")
+        self.assertIn("different devbox", a.session_mismatch(data, "b" * 32))
+
+    def test_forget_deletes_only_the_saved_session(self):
+        from owltwin_app import app as app_mod
+
+        a = bare_app(Path(tempfile.mkdtemp()))
+        a.session = make_session("full")
+        a.save_session()
+        self.assertIn("Stop it first", a.forget_session("devbox-1"))
+        a.session = None
+        with mock.patch.object(app_mod.devbox_link, "remove_overrides") as ro, \
+                mock.patch.object(app_mod, "no_devbox", return_value=False):
+            self.assertEqual(a.forget_session("devbox-1"), "")
+        self.assertIsNone(a.saved_session("devbox-1"))
+        self.assertFalse(ro.called)   # devbox not reachable: overrides stay
+        self.assertIn("No saved session", a.forget_session("devbox-1"))
 
     def test_steps_by_mode(self):
         a = bare_app(Path(tempfile.mkdtemp()))
@@ -352,6 +406,7 @@ class SessionLogicTest(unittest.TestCase):
                     mock.patch.object(app_mod, "no_devbox", return_value=False):
                 a.stop_session()
             self.assertEqual((rd.called, dn.called), (called == "route_down", called == "down"))
+            self.assertEqual(a.saved_session("devbox-1")["mode"], mode)   # Stop keeps it
 
     def test_stop_runs_in_background_once(self):
         import threading

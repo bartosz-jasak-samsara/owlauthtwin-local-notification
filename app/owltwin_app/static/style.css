@@ -418,3 +418,12 @@ h2 .num{display:inline-flex;align-items:center;justify-content:center;width:20px
 .smore .pop .code{margin:0}
 .smore .pop .wins{font-size:12px;line-height:16px;row-gap:4px}
 .smore .pop .wins .k{font-family:var(--font-mono)}
+.opt .d.saved{color:var(--accent)}
+.opt .d.saved.bad{color:var(--bad)}
+.go-for{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.go-for[hidden]{display:none}
+.warnline{font-size:13px;line-height:18px;color:var(--bad)}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-size:13px;color:var(--muted);text-decoration:underline;cursor:pointer}
+.linkbtn:hover{color:var(--ink,inherit)}
+.linkbtn[disabled]{opacity:.5;cursor:default}
+.orphans{display:flex;flex-direction:column;gap:6px;margin-top:8px}

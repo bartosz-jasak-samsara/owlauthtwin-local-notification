@@ -135,8 +135,9 @@
       || !!form.querySelector('input[name=flag_add]')?.value.trim();
     const flags = sw && sw.checked && anyFlag ? `flags for org ${org}` : 'no flags';
     const short = prov.replace(/ connector$/, '').replace(' connector (', ' (');
-    const line = form.querySelector('[data-summary]');
-    if (line) line.textContent = `Start: ${box} · ${MODES[mode]} · ${short} first · ${flags}. Stop undoes all of it.`;
+    form.querySelectorAll('[data-for-devbox]').forEach((g) => { g.hidden = g.dataset.forDevbox !== box; });
+    const line = form.querySelector(`[data-for-devbox="${CSS.escape(box)}"] [data-summary]`);
+    if (line) line.textContent = `Start: ${box} · ${MODES[mode]} · ${short} first · ${flags}. Stop keeps the session; Forget clears it.`;
   }
   function syncForms() {
     syncSetup();
@@ -178,6 +179,9 @@
   document.addEventListener('submit', (e) => {
     const form = e.target;
     if (form.dataset.sent) { e.preventDefault(); return; }
+    // Buttons that replace or delete a saved session ask first.
+    const ask = e.submitter?.dataset.confirm;
+    if (ask && !window.confirm(ask)) { e.preventDefault(); return; }
     form.dataset.sent = '1';
     const b = e.submitter;
     setTimeout(() => {

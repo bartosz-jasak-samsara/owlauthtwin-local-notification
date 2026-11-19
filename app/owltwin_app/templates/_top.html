@@ -70,7 +70,7 @@
     {% if top.state == "stopping" %}
       <button class="btn" type="button" disabled>{{ spin() }}Stopping…</button>
     {% else %}
-      {{ post_btn("/stop", "Stop") }}
+      {{ post_btn("/stop", "Stop", title="Undoes the setup on the devbox and the Mac. The session is kept: Continue it from Setup, or Forget it there.") }}
     {% endif %}
   {% endif %}
 </header>
