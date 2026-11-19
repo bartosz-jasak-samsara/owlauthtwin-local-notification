@@ -47,8 +47,7 @@ That opens the panel at http://127.0.0.1:18200/. `owltwin` checks for updates on
    - repos (`devbox provision`), the code sandbox, aiml-agents and the backend, in tmux
      `owltwin-run` (including local `notificationeventingestionservice` and
      `inboxnotificationworker` so Expire token can write Notification Center rows);
-   - curated feature-config overrides for the session org (connector platform + needs-attention
-     inbox; **not** `FC_USE_DEV_OVERRIDES`, so marketplace Apps stay on real LD targeting);
+   - `FC_USE_DEV_OVERRIDES=1` so connector / needs-attention feature configs turn on locally;
    - the Agent Studio tunnel.
 
    **Twin only** adds just the route and the CA. Your own backend and aiml-agents stay as they

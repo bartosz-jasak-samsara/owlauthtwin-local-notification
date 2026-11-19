@@ -291,10 +291,10 @@ def flags_summary(f: FlagConfig) -> str:
 def flags_vm(f: FlagConfig, sheet: bool = False) -> dict[str, Any]:
     """The flag card. In Session settings (sheet) rows say "on", and app.js marks what Apply
     would change."""
-    names = devbox_link.applied_override_keys(f.names)
+    names = list(dict.fromkeys([*f.names, *devbox_link.DEFAULT_FLAGS]))
     rows = []
     for n in names:
-        on = n in f.names or n in devbox_link.DEFAULT_FLAGS or n in devbox_link.DEFAULT_FEATURE_CONFIGS
+        on = n in f.names
         state = "on" if sheet and f.enabled and on else ""
         rows.append({"name": n, "on": on, "state": state, "chg": False})
     return {"enabled": f.enabled, "org": f.org, "sheet": sheet, "flags": rows}

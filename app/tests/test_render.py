@@ -678,10 +678,7 @@ class AllConnectorsTest(unittest.TestCase):
         self.assertTrue(t.find("form", action="/settings/flags", method="post"))
         self.assertTrue(t.find("form", action="/settings/flags/remove", method="post"))
         flags = {a["value"] for a in t.find("input", name="flag")}
-        from owltwin_app import devbox_link
-
-        self.assertEqual(flags, set(devbox_link.applied_override_keys([])))
-        self.assertNotIn("agent-connector-apps-page-enabled", flags)
+        self.assertEqual(flags, {"agent-studio-enabled", "credits-experience-enabled"})
         self.assertIn("Remove overrides for org 205", t.all_text)
         t, _, _ = running("monday.yaml")
         self.assertFalse(t.has_class("sheet"))

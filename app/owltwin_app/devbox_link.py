@@ -138,30 +138,11 @@ def sso_login(alias: str, on_url) -> str:
 # them in the org's enabled flags.
 DEFAULT_ORG = int(os.environ.get("OWLTWIN_ORG", "205"))
 DEFAULT_FLAGS = ("agent-studio-enabled", "credits-experience-enabled")
-# Feature configs Twin turns on for the session org through the same DynamoDB overrides. Each FC's
-# LaunchDarkly flag has an enabledFeatureFlags rule; local overrides populate that attribute, so
-# Twin does not need FC_USE_DEV_OVERRIDES (which would also force marketplace FCs).
-# Exclude agent-connector-apps-page-enabled so Apps/Marketplace keep real LD targeting.
-DEFAULT_FEATURE_CONFIGS = (
-    "agent-connector-enabled",
-    "agent-connector-needs-attention-notifications",
-    "agent-connector-gmail-enabled",
-    "agent-connector-google-calendar-enabled",
-    "agent-connector-microsoft-365-workiq-enabled",
-    "agent-connector-monday-enabled",
-    "agent-connector-notion-enabled",
-    "agent-connector-ramp-demo-enabled",
-)
 DDB = (
     "unset AWS_PROFILE AWS_DEFAULT_PROFILE; "
     "export AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_DEFAULT_REGION=us-west-2; "
     'ddb() { timeout 20 aws --endpoint-url http://127.0.0.1:8768 dynamodb "$@"; }'
 )
-
-
-def applied_override_keys(names: list[str]) -> list[str]:
-    """Flag names plus Twin's default LD flags and curated feature configs, de-duplicated."""
-    return list(dict.fromkeys([*names, *DEFAULT_FLAGS, *DEFAULT_FEATURE_CONFIGS]))
 
 
 def override_status(org: int) -> str:

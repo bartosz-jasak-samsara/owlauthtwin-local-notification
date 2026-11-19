@@ -45,7 +45,7 @@ flowchart TB
   subgraph Devbox["Devbox (Samsara Localdev)"]
     direction TB
     Dashboard["Vite :3000 + cloudserver :3030\n(/r/oauth/callback)"]
-    Backend["ucvserver + agentconnectors\n+ notification ingest + inbox worker\nSSL_CERT_FILE=~/.owltwin/combined-ca.pem"]
+    Backend["ucvserver + agentconnectors\n+ notification ingest + inbox worker\nSSL_CERT_FILE + FC_USE_DEV_OVERRIDES"]
     Hosts["/etc/hosts (# OWLTWIN)\nreal vendor hosts -> 127.0.0.1"]
     Socat["socat (tmux owltwin-fwd)\n127.0.0.1:443 -> 127.0.0.1:18443"]
 
@@ -181,7 +181,7 @@ sequenceDiagram
 
 ## 7. Modes, Safety & Cleanup (Quick Summary)
 
-- **`Full stack` vs `Twin only`:** Full stack provisions `backend` + `aiml-agents`, sets `local_docker` sandbox, frees Redis `:6380`, opens AWS SSO in Chrome, sets `USE_VITE_DEVPROXY=false`, starts local `notificationeventingestionservice` + `inboxnotificationworker`, and writes `dynamodb-local` (`:8768`) flag overrides for Agent Studio flags plus a curated connector FC allowlist (not `FC_USE_DEV_OVERRIDES`). Twin only sets up routing + CA and monitors your own services.
+- **`Full stack` vs `Twin only`:** Full stack provisions `backend` + `aiml-agents`, sets `local_docker` sandbox, frees Redis `:6380`, opens AWS SSO in Chrome, sets `USE_VITE_DEVPROXY=false` and `FC_USE_DEV_OVERRIDES=1`, starts local `notificationeventingestionservice` + `inboxnotificationworker`, and writes `dynamodb-local` (`:8768`) Agent Studio flag overrides. Twin only sets up routing + CA and monitors your own services.
 - **Safety:** Loopback-only (`127.0.0.1`), `owltwin lint` blocks `okta.com` / `zscaler.net` / `samsara.com` + wildcards, panel enforces `local_only` (DNS rebinding guard), never kills user processes without **Take over**.
 - **Stop vs `Ctrl+C`:** `Stop` restores PAC from `proxy-saved.json`, kills `ssh -R`, removes `# OWLTWIN` hosts, stops `owltwin-fwd` / `owltwin-run`. `Ctrl+C` runs the same cleanup while keeping `session.json` (12h) for **Continue last session**.
 
@@ -202,5 +202,5 @@ sequenceDiagram
 | **DCR (RFC 7591) & `registers_as`** | Dynamic `POST /register`; `registers_as` reproduces vendors that upgrade public `none` requests to `client_secret_post`. |
 | **RFC 9728 / 8414 / 8707 / PKCE** | Protected-resource & auth-server discovery, `resource` token binding, and `S256` code challenge verification. |
 | **`USE_VITE_DEVPROXY=false`** | Keeps `/r/oauth/callback` on local `cloudserver :3030` instead of shared staging `devproxy`. |
-| **`dynamodb-local` overrides** | Writes `ORGFLAGS#<org>` rows on `:8768` so the session org gets Agent Studio flags (`agent-studio-enabled`, `credits-experience-enabled`) and curated connector FCs (`agent-connector-enabled`, needs-attention notifications, provider OrgFeatureConfigs). Marketplace `agent-connector-apps-page-enabled` is excluded. |
-| **`FC_USE_DEV_OVERRIDES`** | Intentionally **not** set by Twin. That env var would force every FC with a `dev_override` (including marketplace). |
+| **`dynamodb-local` overrides** | Writes `ORGFLAGS#<org>` rows on `:8768` so the session org gets Agent Studio flags (`agent-studio-enabled`, `credits-experience-enabled`). |
+| **`FC_USE_DEV_OVERRIDES`** | Set by Full stack so every feature config with a `dev_override` evaluates to that value (including needs-attention inbox). |

@@ -66,13 +66,13 @@ BACKEND_SERVICES = (
 # .envrc's AWS_DEFAULT_PROFILE=readonly names no profile, the SDK finds no credentials and
 # taskrunner stops with "unable to get caller identity", which reads like an expired AWS session.
 FALLBACK_AWS_PROFILE = "devecosystemreadonly"
-# No FC_USE_DEV_OVERRIDES: that forces every feature config with a dev_override (including
-# marketplace). Twin enables only a curated FC allowlist via local feature-flag-overrides
-# (enabledFeatureFlags → LaunchDarkly rules). See DEFAULT_FEATURE_CONFIGS in devbox_link.
+# FC_USE_DEV_OVERRIDES turns on every feature config with a dev_override (needs-attention
+# inbox, connector gates, etc.) so Expire-token notifications work without per-FC targeting.
 _BACKEND_ENV = (
     "SSL_CERT_FILE=$HOME/.owltwin/combined-ca.pem "
     + (f"AWS_REGION={shlex.quote(AWS_REGION)} AWS_DEFAULT_REGION={shlex.quote(AWS_REGION)} "
        if AWS_REGION else "")
+    + "FC_USE_DEV_OVERRIDES=1 "
     + "USE_VITE_DEVPROXY=false "
 )
 if AWS_PROFILE:
@@ -425,7 +425,7 @@ class App:
         flags = FlagConfig.from_json(data.get("flags"), data["mode"])
         dbx = self.devboxes.get(alias)
         if flags.enabled and dbx and dbx.ssh_ok and not no_devbox():
-            names = devbox_link.applied_override_keys(flags.names)
+            names = list(dict.fromkeys([*flags.names, *devbox_link.DEFAULT_FLAGS]))
             threading.Thread(
                 target=devbox_link.remove_overrides, args=(alias, flags.org, names),
                 name="forget-flags", daemon=True,
@@ -890,21 +890,19 @@ class App:
         self._flags(s, link)
 
     def _flags(self, s: Session, link: devbox_link.LinkStatus) -> None:
-        """Agent Studio access and curated connector feature configs.
+        """Agent Studio access.
 
         The local backend asks production LaunchDarkly, where the org is not targeted, so the org
-        gets a local override (the same rows the feature_flag_overrides panel writes). Those rows
-        also turn on DEFAULT_FEATURE_CONFIGS through each FC's enabledFeatureFlags LD rule.
+        gets a local override (the same rows the feature_flag_overrides panel writes).
         """
         f = s.flags
         if not f.enabled or not f.names:
             self._set(s, "flags", "skipped", FLAGS_OFF if not f.enabled else "No flags listed")
             return
-        org = f.org
-        keys = devbox_link.applied_override_keys(f.names)
-        missing = [n for n in keys if n not in link.overrides]
+        org, flags = f.org, f.names
+        missing = [n for n in flags if n not in link.overrides]
         if not missing:
-            self._set(s, "flags", "ok", f"org {org}: {', '.join(keys)} on (local override)")
+            self._set(s, "flags", "ok", f"org {org}: {', '.join(flags)} on (local override)")
         elif "flags" in s.errors:
             detail = f"Could not add the local override for org {org}: {s.errors['flags']}"
             self._set(s, "flags", "fail", detail)
@@ -922,8 +920,7 @@ class App:
             self._set(s, "flags", "running", detail)
 
     def _write_overrides(self, s: Session) -> None:
-        org = s.flags.org
-        names = devbox_link.applied_override_keys(s.flags.names)
+        org, names = s.flags.org, list(s.flags.names)
         err = devbox_link.ensure_overrides(s.devbox.alias, org, names)
         if err:
             s.errors["flags"] = err
@@ -954,7 +951,7 @@ class App:
         s = self.session
         if not s or no_devbox():
             return
-        names = devbox_link.applied_override_keys(s.flags.names)
+        names = list(dict.fromkeys([*s.flags.names, *devbox_link.DEFAULT_FLAGS]))
 
         def run() -> None:
             err = devbox_link.remove_overrides(s.devbox.alias, org, names)
