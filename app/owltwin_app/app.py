@@ -58,7 +58,9 @@ START_GRACE = 10
 # direnv exec loads the repo's .envrc (PATH with taskrunner-localdev) without relying on the shell
 # hook; `env` after it makes these values win over anything .envrc sets.
 BACKEND_SERVICES = (
-    "ucvserver agentconnectorservice agentservice agentchatworker agentstudiogqlservice"
+    "ucvserver agentconnectorservice agentservice agentchatworker "
+    "agentstudiogqlservice notificationeventingestionservice "
+    "inboxnotificationworker"
 )
 # The profile backend's bin/setup.sh writes to .envrc.local for DevEco devboxes. Without that line
 # .envrc's AWS_DEFAULT_PROFILE=readonly names no profile, the SDK finds no credentials and

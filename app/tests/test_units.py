@@ -464,7 +464,6 @@ class SessionLogicTest(unittest.TestCase):
         self.assertIsInstance(parse_flags(True, "1", ["x'y"]), str)
         self.assertEqual(parse_flags(False, "", []).org, 205)
 
-
 class SsoLoginScriptTest(unittest.TestCase):
     def test_picks_the_session_most_profiles_use(self):
         import subprocess
