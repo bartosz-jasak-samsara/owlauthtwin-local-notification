@@ -27,8 +27,9 @@ It changes nothing else on the Mac. You also need the `devbox` CLI and a running
 owltwin
 ```
 
-That opens the panel at http://127.0.0.1:18200/. To update, run `owltwin update`. To stop, press
-Ctrl+C.
+That opens the panel at http://127.0.0.1:18200/. `owltwin` checks for updates on startup
+(`git pull --ff-only`); pass `owltwin --no-update` (or set `OWLTWIN_NO_UPDATE=1`) to skip, or run
+`owltwin update` manually. To stop, press Ctrl+C.
 
 ## Use
 

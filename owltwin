@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # owltwin: starts the OwlAuth Twin app on this Mac and prints its address.
 #
-#   owltwin                 start the app and open the panel
+#   owltwin                 auto-update (git pull --ff-only), start the app, and open the panel
+#   owltwin --no-update     skip the startup auto-update
 #   owltwin --no-open       start without opening the browser
 #   owltwin lint [name...]  check provider YAML files in ./providers
 #   owltwin update          pull the latest version (git pull --ff-only) and its packages
 #
 # Dev only. Needs uv (brew install uv). Env: OWLTWIN_PORT (panel, 18200),
 # OWLTWIN_PROXY_PORT (18201), OWLTWIN_SERVER_PORT (18443), OWLTWIN_STATE_DIR,
+# OWLTWIN_NO_UPDATE=1 (skip startup auto-update),
 # OWLTWIN_NO_SYSTEM_PROXY=1 (leave macOS proxy alone), OWLTWIN_NO_DEVBOX=1.
 set -euo pipefail
 here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -16,7 +18,34 @@ if [[ "${1:-}" == update ]]; then
   git -C "$here" pull --ff-only
   cd "$here/app" && exec uv sync --quiet --frozen --no-dev
 fi
+no_update=0
+[[ "${OWLTWIN_NO_UPDATE:-0}" == "1" ]] && no_update=1
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == --no-update ]]; then
+    no_update=1
+  else
+    args+=("$arg")
+  fi
+done
 cmd=serve
-if [[ "${1:-}" == lint ]]; then cmd=lint; shift; fi
+if [[ "${args[0]:-}" == lint ]]; then
+  cmd=lint
+  args=("${args[@]:1}")
+fi
+if [[ "$cmd" == serve && "$no_update" -eq 0 && -e "$here/.git" ]]; then
+  before="$(git -C "$here" rev-parse HEAD 2>/dev/null || true)"
+  if err="$(git -C "$here" pull --ff-only --quiet 2>&1)"; then
+    after="$(git -C "$here" rev-parse HEAD 2>/dev/null || true)"
+    if [[ -n "$before" && -n "$after" && "$before" != "$after" ]]; then
+      echo "owltwin: updated (${before:0:7} -> ${after:0:7})"
+      (cd "$here/app" && uv sync --quiet --frozen --no-dev) || true
+      exec "$here/owltwin" --no-update ${args[@]+"${args[@]}"}
+    fi
+  else
+    first_line="${err%%$'\n'*}"
+    echo "owltwin: auto-update skipped (${first_line:-git pull failed}); pass --no-update to skip" >&2
+  fi
+fi
 cd "$here/app"
-exec uv run --quiet python -m owltwin_app "$cmd" "$@"
+exec uv run --quiet python -m owltwin_app "$cmd" ${args[@]+"${args[@]}"}

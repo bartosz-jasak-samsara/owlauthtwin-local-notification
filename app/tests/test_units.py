@@ -470,3 +470,90 @@ class OverridesScriptTest(unittest.TestCase):
         self.assertIn("delete-item", script)
         self.assertIn("DIRECT_ORG#77", script)
         self.assertIn("ORGFLAGS#77", devbox_link.override_status(77))
+
+
+class LauncherTest(unittest.TestCase):
+    def run_launcher(self, args: list[str], *, head_after: str = "aaaaaaa1", pull_rc: int = 0,
+                     extra_env: dict[str, str] | None = None):
+        import os
+        import shutil
+        import subprocess
+
+        root = Path(tempfile.mkdtemp())
+        (root / "app").mkdir()
+        (root / ".git").mkdir()
+        launcher = root / "owltwin"
+        shutil.copy2(PROVIDERS.parent / "owltwin", launcher)
+        launcher.chmod(0o755)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        log_file = root / "calls.log"
+        head_file = root / "head"
+        head_file.write_text("aaaaaaa1")
+
+        git_stub = bin_dir / "git"
+        git_stub.write_text(f"""#!/bin/sh
+echo "git $*" >> "{log_file}"
+case " $* " in
+  *" rev-parse HEAD "*) cat "{head_file}" ;;
+  *" pull "*)
+    if [ "{pull_rc}" -ne 0 ]; then
+      echo "fatal: could not fast-forward" >&2
+      exit {pull_rc}
+    fi
+    printf '%s' "{head_after}" > "{head_file}"
+    ;;
+esac
+""")
+        git_stub.chmod(0o755)
+
+        uv_stub = bin_dir / "uv"
+        uv_stub.write_text(f'#!/bin/sh\necho "uv $*" >> "{log_file}"\n')
+        uv_stub.chmod(0o755)
+
+        env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(root)}
+        if extra_env:
+            env.update(extra_env)
+        else:
+            env.pop("OWLTWIN_NO_UPDATE", None)
+        proc = subprocess.run([str(launcher), *args], env=env, capture_output=True, text=True,
+                              timeout=10)
+        calls = log_file.read_text().splitlines() if log_file.exists() else []
+        os.chmod(launcher, 0o644)
+        return proc, calls
+
+    def test_default_serve_auto_updates(self):
+        proc, calls = self.run_launcher(["--no-open"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(any("pull --ff-only" in c for c in calls))
+        self.assertEqual(calls[-1], "uv run --quiet python -m owltwin_app serve --no-open")
+
+    def test_updated_head_syncs_and_reexecs_once(self):
+        proc, calls = self.run_launcher(["--no-open"], head_after="bbbbbbb2")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("owltwin: updated (aaaaaaa -> bbbbbbb)", proc.stdout)
+        pulls = [c for c in calls if " pull " in c]
+        self.assertEqual(len(pulls), 1)
+        self.assertIn("uv sync --quiet --frozen --no-dev", calls)
+        self.assertEqual(calls[-1], "uv run --quiet python -m owltwin_app serve --no-open")
+
+    def test_no_update_flag_and_env_skip_pull(self):
+        for args, env in ((["--no-update", "--no-open"], None),
+                          (["--no-open"], {"OWLTWIN_NO_UPDATE": "1"})):
+            proc, calls = self.run_launcher(args, extra_env=env)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertFalse(any("pull" in c for c in calls))
+            self.assertEqual(calls[-1], "uv run --quiet python -m owltwin_app serve --no-open")
+
+    def test_failed_pull_warns_and_still_starts(self):
+        proc, calls = self.run_launcher([], pull_rc=1)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("auto-update skipped", proc.stderr)
+        self.assertEqual(calls[-1], "uv run --quiet python -m owltwin_app serve")
+
+    def test_lint_does_not_auto_update(self):
+        proc, calls = self.run_launcher(["lint", "gmail"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(any("pull" in c for c in calls))
+        self.assertEqual(calls[-1], "uv run --quiet python -m owltwin_app lint gmail")
+
