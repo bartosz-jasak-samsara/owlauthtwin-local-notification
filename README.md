@@ -45,7 +45,10 @@ That opens the panel at http://127.0.0.1:18200/. `owltwin` checks for updates on
    - the Mac proxy and the tunnel;
    - the devbox route and CA;
    - repos (`devbox provision`), the code sandbox, aiml-agents and the backend, in tmux
-     `owltwin-run`;
+     `owltwin-run` (including local `notificationeventingestionservice` and
+     `inboxnotificationworker` so Expire token can write Notification Center rows);
+   - curated feature-config overrides for the session org (connector platform + needs-attention
+     inbox; **not** `FC_USE_DEV_OVERRIDES`, so marketplace Apps stay on real LD targeting);
    - the Agent Studio tunnel.
 
    **Twin only** adds just the route and the CA. Your own backend and aiml-agents stay as they

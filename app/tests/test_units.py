@@ -464,6 +464,18 @@ class SessionLogicTest(unittest.TestCase):
         self.assertIsInstance(parse_flags(True, "1", ["x'y"]), str)
         self.assertEqual(parse_flags(False, "", []).org, 205)
 
+    def test_applied_override_keys_include_curated_fcs(self):
+        from owltwin_app import devbox_link
+
+        keys = devbox_link.applied_override_keys(["agent-studio-enabled", "custom-flag"])
+        self.assertIn("agent-studio-enabled", keys)
+        self.assertIn("credits-experience-enabled", keys)
+        self.assertIn("custom-flag", keys)
+        self.assertIn("agent-connector-enabled", keys)
+        self.assertIn("agent-connector-needs-attention-notifications", keys)
+        self.assertNotIn("agent-connector-apps-page-enabled", keys)
+        self.assertEqual(len(keys), len(set(keys)))
+
 
 class SsoLoginScriptTest(unittest.TestCase):
     def test_picks_the_session_most_profiles_use(self):
