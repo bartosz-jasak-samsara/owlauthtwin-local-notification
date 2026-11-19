@@ -66,14 +66,11 @@ BACKEND_SERVICES = (
 # .envrc's AWS_DEFAULT_PROFILE=readonly names no profile, the SDK finds no credentials and
 # taskrunner stops with "unable to get caller identity", which reads like an expired AWS session.
 FALLBACK_AWS_PROFILE = "devecosystemreadonly"
-# FC_USE_DEV_OVERRIDES turns on every feature config with a dev_override (needs-attention
-# inbox, connector gates, etc.) so Expire-token notifications work without per-FC targeting.
 _BACKEND_ENV = (
     "SSL_CERT_FILE=$HOME/.owltwin/combined-ca.pem "
     + (f"AWS_REGION={shlex.quote(AWS_REGION)} AWS_DEFAULT_REGION={shlex.quote(AWS_REGION)} "
        if AWS_REGION else "")
-    + "FC_USE_DEV_OVERRIDES=1 "
-    + "USE_VITE_DEVPROXY=false "
+    + "FC_USE_DEV_OVERRIDES=1 USE_VITE_DEVPROXY=false "
 )
 if AWS_PROFILE:
     BACKEND_CMD = (
